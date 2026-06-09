@@ -26,8 +26,10 @@
     messagingSenderId: "110785952656",
     appId: "1:110785952656:web:188ceed93bc641caa45115"
   };
-  var ADMIN_EMAILS = ["hungb9388@gmail.com"];
+  var ADMIN_EMAILS = ["hbmoon@eretec.com"];
   var DATA_PATH = "/emc/data";
+  var ID_DOMAIN = "@emc.app";   // ID를 Firebase email로 변환할 때 붙이는 도메인
+  var PW_PREFIX = "emc_";       // 4자리 비밀번호를 Firebase 6자 이상으로 맞추는 접두어
   var CONFIG_READY = false;
   try {
     if (typeof firebase !== "undefined") {
@@ -96,6 +98,11 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
 const RANKS = ["사원","대리","과장","차장","부장","이사"];
+
+/* ID ↔ Firebase email 변환 / 비밀번호 패딩 */
+function toEmail(id){ return id.includes("@")?id:(id+ID_DOMAIN); }
+function fromEmail(email){ return (email||"").replace(ID_DOMAIN,""); }
+function toPw(pw){ return PW_PREFIX+pw; }
 
 // 기본 공정 행 (첨부 일정표 기준)
 const DEFAULT_TASKS = [
@@ -179,8 +186,8 @@ function App(){
     const m=data.members?.[user.uid];
     const isAdmin=ADMIN_EMAILS.includes((user.email||"").toLowerCase());
     setProfile({
-      uid:user.uid, email:user.email,
-      name:m?.name||user.displayName||(user.email||"").split("@")[0],
+      uid:user.uid, email:user.email, userId:fromEmail(user.email),
+      name:m?.name||user.displayName||fromEmail(user.email),
       rank:isAdmin?"이사":(m?.rank||"사원"),
       isAdmin,
     });
@@ -521,6 +528,7 @@ function Dashboard({profile,data,go}){
 ===================================================== */
 function Projects({profile,data}){
   const projects=Object.entries(data.projects||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const members=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
   const [editing,setEditing]=useState(null);
   const [activeId,setActiveId]=useState(null);
   const isAdmin=profile.isAdmin;
@@ -530,7 +538,8 @@ function Projects({profile,data}){
   const saveHeader=async(form)=>{
     if(form.id){
       await firebase.database().ref(DATA_PATH+"/projects/"+form.id).update({
-        name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,note:form.note
+        name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,
+        note:form.note,assignedMembers:form.assignedMembers||[]
       });
     }else{
       const id=uid();
@@ -539,7 +548,8 @@ function Projects({profile,data}){
         note:form.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
         createdAt:Date.now(),
         tasks:DEFAULT_TASKS.map(n=>({id:uid(),name:n})),
-        schedule:{}
+        schedule:{},
+        assignedMembers:form.assignedMembers||[]
       });
       setActiveId(id);
     }
@@ -569,20 +579,26 @@ function Projects({profile,data}){
       ))}
     </div>}
 
-    {active&&<ScheduleTable key={active.id} project={active} profile={profile}
+    {active&&<ScheduleTable key={active.id} project={active} profile={profile} members={members}
       onEditHeader={()=>setEditing({...active})} onDelete={()=>delProject(active.id)}/>}
 
-    {editing&&<HeaderModal project={editing==="new"?null:editing} onSave={saveHeader} onClose={()=>setEditing(null)}/>}
+    {editing&&<HeaderModal project={editing==="new"?null:editing} members={members} onSave={saveHeader} onClose={()=>setEditing(null)}/>}
   </div>;
 }
 
-function HeaderModal({project,onSave,onClose}){
+function HeaderModal({project,members,onSave,onClose}){
   const [f,setF]=useState({
     id:project?.id||"", name:project?.name||"", client:project?.client||"",
     startMonth:project?.startMonth||7, endMonth:project?.endMonth||12,
-    note:project?.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다."
+    note:project?.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
+    assignedMembers:project?.assignedMembers||[]
   });
   const set=(k,v)=>setF(s=>({...s,[k]:v}));
+  const toggleMember=(mid)=>{
+    const cur=f.assignedMembers||[];
+    const next=cur.includes(mid)?cur.filter(x=>x!==mid):[...cur,mid];
+    set("assignedMembers",next);
+  };
   return <Modal onClose={onClose} title={project?"프로젝트 정보 수정":"새 프로젝트"}>
     <label className="lbl">프로젝트명</label>
     <input className="field" style={{marginBottom:12}} value={f.name} onChange={e=>set("name",e.target.value)}/>
@@ -602,7 +618,19 @@ function HeaderModal({project,onSave,onClose}){
         </select>
       </div>
     </div>
-    <label className="lbl" style={{marginTop:12}}>비고</label>
+    <label className="lbl" style={{marginTop:14}}>팀원 배정</label>
+    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+      {members.length===0&&<span style={{fontSize:12,color:"var(--muted)"}}>등록된 팀원이 없습니다.</span>}
+      {members.map(m=>{
+        const on=(f.assignedMembers||[]).includes(m.id);
+        return <button key={m.id} type="button" onClick={()=>toggleMember(m.id)}
+          style={{fontSize:12,padding:"6px 10px",borderRadius:8,
+            border:"1px solid "+(on?"var(--accent)":"var(--line)"),
+            background:on?"var(--accent)":"transparent",
+            color:on?"#1a0d00":"var(--muted)",cursor:"pointer"}}>{m.rank} {m.name}</button>;
+      })}
+    </div>
+    <label className="lbl">비고</label>
     <input className="field" value={f.note} onChange={e=>set("note",e.target.value)}/>
     <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end"}}>
       <button className="btn ghost" onClick={onClose}>취소</button>
@@ -611,9 +639,11 @@ function HeaderModal({project,onSave,onClose}){
   </Modal>;
 }
 
-function ScheduleTable({project,profile,onEditHeader,onDelete}){
-  // 일정표 전체 수정 권한: 관리자 또는 팀원(담당자) 모두 가능
-  const canEdit = profile.isAdmin || true;
+function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
+  // 관리자 또는 배정된 팀원만 편집 가능
+  const assigned=(project.assignedMembers||[]);
+  const isAssigned=assigned.includes(profile.uid);
+  const canEdit = profile.isAdmin || isAssigned;
   const ref=firebase.database().ref(DATA_PATH+"/projects/"+project.id);
   const cols=buildColumns(project.startMonth,project.endMonth);
   const tasks=project.tasks||[];
@@ -730,6 +760,13 @@ function ScheduleTable({project,profile,onEditHeader,onDelete}){
       <div>
         <div style={{fontSize:17}}>{project.name}</div>
         <div style={{fontSize:12,color:"var(--muted)"}}>{project.client||"발주처 미정"} · {MONTH_NAMES[project.startMonth-1]} ~ {MONTH_NAMES[project.endMonth-1]}</div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+          {assigned.length===0&&<span style={{fontSize:11,color:"var(--muted)"}}>배정된 팀원 없음</span>}
+          {assigned.map(mid=>{
+            const m=(members||[]).find(x=>x.id===mid);
+            return m?<span key={mid} className="tag" style={{color:"var(--accent)"}}>{m.rank} {m.name}</span>:null;
+          })}
+        </div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={{textAlign:"right"}}>
@@ -746,14 +783,18 @@ function ScheduleTable({project,profile,onEditHeader,onDelete}){
     <div style={{padding:"4px 0 14px"}}>
       <div style={{display:"flex",gap:8,padding:"10px 18px",alignItems:"center",flexWrap:"wrap"}}>
         {profile.isAdmin&&<button className="btn ghost sm" onClick={addTask}>+ 공정 추가</button>}
-        <span style={{fontSize:12,color:"var(--muted)"}}>
-          셀을 클릭·드래그해 일정을 칠하거나 지운 뒤 저장하세요.{profile.isAdmin?" 공정명 클릭 시 이름 수정.":""}
-        </span>
+        {canEdit
+          ? <span style={{fontSize:12,color:"var(--muted)"}}>
+              셀을 클릭·드래그해 일정을 칠하거나 지운 뒤 저장하세요.{profile.isAdmin?" 공정명 클릭 시 이름 수정.":""}
+            </span>
+          : <span style={{fontSize:12,color:"var(--muted)"}}>
+              조회 전용 — 이 프로젝트에 배정된 팀원만 수정할 수 있습니다.
+            </span>}
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
           {dirty&&<span style={{fontSize:12,color:"var(--yellow)"}}>● 저장되지 않은 변경</span>}
           {dirty&&<button className="btn ghost sm" onClick={revertSchedule} disabled={saving}>되돌리기</button>}
-          <button className="btn sm" onClick={saveSchedule} disabled={!dirty||saving}
-            style={{opacity:(!dirty||saving)?.5:1}}>{saving?"저장 중…":"저장"}</button>
+          {canEdit&&<button className="btn sm" onClick={saveSchedule} disabled={!dirty||saving}
+            style={{opacity:(!dirty||saving)?.5:1}}>{saving?"저장 중…":"저장"}</button>}
         </div>
       </div>
 
