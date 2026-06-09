@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Management (이레테크)</title>
+
+<!-- React + Babel -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<!-- 일반 script: Firebase 초기화 + 전역 상수 (여기서만 선언, babel에서 재선언 금지) -->
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBkHl1S3GnquSCU-tcMKyceOpPX76rRBj0",
+    authDomain: "emc-project-62729.firebaseapp.com",
+    databaseURL: "https://emc-project-62729-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "emc-project-62729",
+    storageBucket: "emc-project-62729.firebasestorage.app",
+    messagingSenderId: "110785952656",
+    appId: "1:110785952656:web:188ceed93bc641caa45115"
+  };
+  var ADMIN_EMAILS = ["hungb9388@gmail.com"];
+  var DATA_PATH = "/emc/data";
+  var CONFIG_READY = false;
+  try {
+    if (typeof firebase !== "undefined") {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      CONFIG_READY = true;
+    }
+  } catch (e) {
+    console.error("Firebase init failed", e);
+    CONFIG_READY = false;
+  }
+</script>
+
+<style>
+  :root{
+    --navy:#13192E;
+    --navy-2:#1B2440;
+    --navy-3:#222C4E;
+    --line:#2E3A63;
+    --text:#EAF0FF;
+    --muted:#9AA8D0;
+    --accent:#FF7A2E;
+    --accent-2:#FFB070;
+    --green:#3FD08C;
+    --red:#FF6B6B;
+    --yellow:#FFD15C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;
+    font-weight:600;
+    background:var(--navy);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;font-weight:600;cursor:pointer;}
+  input,select,textarea{font-family:inherit;font-weight:600;}
+  ::-webkit-scrollbar{height:10px;width:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  .btn{
+    border:none;border-radius:10px;padding:10px 16px;font-size:14px;
+    background:var(--accent);color:#1a0d00;transition:.15s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
+  .btn.ghost:hover{background:var(--navy-3);}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px;}
+  .btn.danger{background:var(--red);color:#2a0000;}
+  .field{
+    width:100%;background:var(--navy);border:1px solid var(--line);
+    color:var(--text);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;
+  }
+  .field:focus{border-color:var(--accent);}
+  .card{background:var(--navy-2);border:1px solid var(--line);border-radius:14px;}
+  .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--navy-3);color:var(--muted);}
+  label.lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const RANKS = ["사원","대리","과장","차장","부장","이사"];
+
+// 기본 공정 행 (첨부 일정표 기준)
+const DEFAULT_TASKS = [
+  "업무 미팅 및 협의",
+  "H-beam",
+  "Shield Panel",
+  "Main Door",
+  "Raised Floor",
+  "Electric",
+  "유틸리티",
+];
+
+const MONTH_NAMES = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+
+/* ---------------- helpers ---------------- */
+function pad(n){return n<10?"0"+n:""+n;}
+function fmtDate(d){ if(!d) return ""; const x=new Date(d); return x.getFullYear()+"."+pad(x.getMonth()+1)+"."+pad(x.getDate()); }
+const WD=["일","월","화","수","목","금","토"];
+function mondayOf(date){
+  const d=new Date(date); const day=d.getDay();
+  const diff=(day===0?-6:1-day);
+  d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d;
+}
+function weekLabel(date){
+  const mon=mondayOf(date); const fri=new Date(mon); fri.setDate(mon.getDate()+4);
+  const f=(x)=>x.getFullYear()+"."+pad(x.getMonth()+1)+"."+pad(x.getDate())+"("+WD[x.getDay()]+")";
+  return f(mon)+" ~ "+f(fri);
+}
+function weekKey(date){ const m=mondayOf(date); return m.getFullYear()+"-"+pad(m.getMonth()+1)+"-"+pad(m.getDate()); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* 월 범위(startMonth~endMonth, 1~12) → 컬럼 배열 [{m, wk}] 각 월 4주 */
+function buildColumns(startMonth,endMonth){
+  const cols=[];
+  let m=startMonth;
+  for(let i=0;i<24;i++){ // 안전 한도
+    for(let w=1;w<=4;w++) cols.push({m, wk:w});
+    if(m===endMonth) break;
+    m=m%12+1;
+  }
+  return cols;
+}
+function cellKey(m,wk){ return m+"_"+wk; }
+
+/* =====================================================
+   ROOT
+===================================================== */
+function App(){
+  const [booting,setBooting]=useState(true);
+  const [user,setUser]=useState(null);
+  const [profile,setProfile]=useState(null);
+  const [data,setData]=useState({members:{},projects:{},weekly:{}});
+  const [authView,setAuthView]=useState("landing");
+  const [appReady,setAppReady]=useState(false);
+
+  useEffect(()=>{
+    if(!CONFIG_READY){ setBooting(false); return; }
+    const unsub=firebase.auth().onAuthStateChanged((u)=>{ setUser(u||null); setBooting(false); });
+    return ()=>unsub();
+  },[]);
+
+  useEffect(()=>{
+    if(!CONFIG_READY||!user) return;
+    const ref=firebase.database().ref(DATA_PATH);
+    const cb=ref.on("value",(snap)=>{
+      const v=snap.val()||{};
+      setData({members:v.members||{},projects:v.projects||{},weekly:v.weekly||{}});
+      setAppReady(true);
+      // 관리자(문형범) 직급이 이사가 아니면 보정
+      const isAdmin=ADMIN_EMAILS.includes((user.email||"").toLowerCase());
+      const mine=(v.members||{})[user.uid];
+      if(isAdmin&&mine&&mine.rank!=="이사"){
+        firebase.database().ref(DATA_PATH+"/members/"+user.uid+"/rank").set("이사");
+      }
+    });
+    return ()=>ref.off("value",cb);
+  },[user]);
+
+  useEffect(()=>{
+    if(!user){ setProfile(null); return; }
+    const m=data.members?.[user.uid];
+    const isAdmin=ADMIN_EMAILS.includes((user.email||"").toLowerCase());
+    setProfile({
+      uid:user.uid, email:user.email,
+      name:m?.name||user.displayName||(user.email||"").split("@")[0],
+      rank:isAdmin?"이사":(m?.rank||"사원"),
+      isAdmin,
+    });
+  },[user,data.members]);
+
+  if(!CONFIG_READY) return <ConfigError/>;
+  if(booting) return <Splash/>;
+  if(!user){
+    if(authView==="login") return <Login onBack={()=>setAuthView("landing")} goSignup={()=>setAuthView("signup")}/>;
+    if(authView==="signup") return <Signup onBack={()=>setAuthView("landing")} goLogin={()=>setAuthView("login")}/>;
+    return <Landing onLogin={()=>setAuthView("login")} onSignup={()=>setAuthView("signup")}/>;
+  }
+  if(!appReady||!profile) return <Splash/>;
+  return <Main user={user} profile={profile} data={data}/>;
+}
+
+function Splash(){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div className="spin"/></div>;
+}
+function ConfigError(){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div className="card" style={{maxWidth:440,padding:28,textAlign:"center"}}>
+      <div style={{fontSize:22,marginBottom:10,color:"var(--accent)"}}>연결할 수 없습니다</div>
+      <div style={{color:"var(--muted)",lineHeight:1.6,fontSize:14}}>
+        Firebase 라이브러리를 불러오지 못했습니다.<br/>인터넷 연결을 확인하고 페이지를 새로고침해 주세요.
+      </div>
+    </div>
+  </div>;
+}
+
+/* =====================================================
+   LANDING
+===================================================== */
+function Landing({onLogin,onSignup}){
+  // chamber-bg.jpg 를 index.html 과 같은 폴더에 올리면 배경으로 표시됩니다.
+  const left={
+    position:"relative",overflow:"hidden",
+    flex:"1 1 360px",minWidth:300,
+    backgroundImage:"linear-gradient(160deg,rgba(255,122,46,.86) 0%,rgba(255,157,77,.78) 55%,rgba(255,184,107,.72) 100%), url('chamber-bg.jpg')",
+    backgroundSize:"cover",backgroundPosition:"center",
+    color:"#241000",padding:"56px 48px",display:"flex",flexDirection:"column",justifyContent:"center"
+  };
+  const right={
+    flex:"1 1 360px",minWidth:300,background:"var(--navy)",
+    padding:"56px 48px",display:"flex",flexDirection:"column",justifyContent:"center"
+  };
+  return <div style={{minHeight:"100vh",display:"flex",flexWrap:"wrap"}}>
+    <div style={left}>
+      <div style={{position:"relative"}}>
+        <div style={{fontSize:13,letterSpacing:3,opacity:.85}}>ERETEC · 이레테크</div>
+        <h1 style={{fontSize:"clamp(30px,4.5vw,46px)",lineHeight:1.1,margin:"14px 0 18px",fontWeight:800,textShadow:"0 1px 12px rgba(0,0,0,.18)"}}>Project<br/>Management</h1>
+        <p style={{fontSize:16,lineHeight:1.7,maxWidth:420,opacity:.95,margin:0}}>
+          전자파 무반향실 챔버 설계팀을 위한 프로젝트·일정 관리.
+          공정별 일정표를 한 장으로 보고, 주간 업무를 가볍게 기록하세요.
+        </p>
+        <div style={{marginTop:30,display:"flex",gap:18,flexWrap:"wrap",fontSize:13,opacity:.9}}>
+          <span>· 공정 일정표</span><span>· 주간업무</span><span>· 팀원 관리</span>
+        </div>
+      </div>
+    </div>
+    <div style={right}>
+      <div style={{maxWidth:340,margin:"0 auto",width:"100%"}}>
+        <div style={{fontSize:22,marginBottom:6}}>시작하기</div>
+        <div style={{color:"var(--muted)",fontSize:14,marginBottom:26}}>계정으로 로그인하거나 새로 가입하세요.</div>
+        <button className="btn" style={{width:"100%",padding:"13px",marginBottom:12}} onClick={onLogin}>로그인</button>
+        <button className="btn ghost" style={{width:"100%",padding:"13px"}} onClick={onSignup}>회원가입</button>
+        <div style={{marginTop:24,fontSize:12,color:"var(--muted)",textAlign:"center"}}>가입하면 설계팀 팀원으로 자동 등록됩니다.</div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* =====================================================
+   AUTH
+===================================================== */
+function AuthShell({title,children,onBack}){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <div className="card" style={{width:"100%",maxWidth:400,padding:30}}>
+      <button className="btn ghost sm" onClick={onBack} style={{marginBottom:18}}>← 처음으로</button>
+      <div style={{fontSize:22,marginBottom:20}}>{title}</div>
+      {children}
+    </div>
+  </div>;
+}
+function Login({onBack,goSignup}){
+  const [email,setEmail]=useState(""); const [pw,setPw]=useState("");
+  const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+  const submit=async()=>{
+    setErr(""); if(!email||!pw){ setErr("이메일과 비밀번호를 입력하세요."); return; }
+    setBusy(true);
+    try{
+      await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      await firebase.auth().signInWithEmailAndPassword(email.trim(),pw);
+    }catch(e){ setErr(mapAuthError(e)); setBusy(false); }
+  };
+  return <AuthShell title="로그인" onBack={onBack}>
+    <label className="lbl">이메일</label>
+    <input className="field" style={{marginBottom:14}} value={email} onChange={e=>setEmail(e.target.value)} type="email" autoComplete="username"/>
+    <label className="lbl">비밀번호</label>
+    <input className="field" style={{marginBottom:8}} value={pw} onChange={e=>setPw(e.target.value)} type="password" autoComplete="current-password"
+      onKeyDown={e=>{if(e.key==="Enter")submit();}}/>
+    {err&&<div style={{color:"var(--red)",fontSize:13,margin:"8px 0"}}>{err}</div>}
+    <button className="btn" style={{width:"100%",padding:"13px",margin:"14px 0 12px"}} onClick={submit} disabled={busy}>{busy?"로그인 중…":"로그인"}</button>
+    <div style={{textAlign:"center",fontSize:13,color:"var(--muted)"}}>계정이 없으신가요? <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={goSignup}>회원가입</span></div>
+  </AuthShell>;
+}
+function Signup({onBack,goLogin}){
+  const [name,setName]=useState(""); const [rank,setRank]=useState("사원");
+  const [email,setEmail]=useState(""); const [pw,setPw]=useState("");
+  const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+  const submit=async()=>{
+    setErr("");
+    if(!name.trim()){ setErr("이름을 입력하세요."); return; }
+    if(!email||pw.length<6){ setErr("이메일과 6자 이상 비밀번호를 입력하세요."); return; }
+    setBusy(true);
+    try{
+      await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      const cred=await firebase.auth().createUserWithEmailAndPassword(email.trim(),pw);
+      const u=cred.user;
+      await u.updateProfile({displayName:name.trim()});
+      const snap=await firebase.database().ref(DATA_PATH+"/members").get();
+      const order=snap.exists()?Object.keys(snap.val()).length:0;
+      await firebase.database().ref(DATA_PATH+"/members/"+u.uid).set({
+        name:name.trim(), rank, email:email.trim(), order, createdAt:Date.now()
+      });
+    }catch(e){ setErr(mapAuthError(e)); setBusy(false); }
+  };
+  return <AuthShell title="회원가입" onBack={onBack}>
+    <label className="lbl">이름</label>
+    <input className="field" style={{marginBottom:14}} value={name} onChange={e=>setName(e.target.value)}/>
+    <label className="lbl">직급</label>
+    <select className="field" style={{marginBottom:14}} value={rank} onChange={e=>setRank(e.target.value)}>
+      {RANKS.map(r=><option key={r} value={r}>{r}</option>)}
+    </select>
+    <label className="lbl">이메일</label>
+    <input className="field" style={{marginBottom:14}} value={email} onChange={e=>setEmail(e.target.value)} type="email"/>
+    <label className="lbl">비밀번호 (6자 이상)</label>
+    <input className="field" value={pw} onChange={e=>setPw(e.target.value)} type="password" onKeyDown={e=>{if(e.key==="Enter")submit();}}/>
+    {err&&<div style={{color:"var(--red)",fontSize:13,margin:"10px 0"}}>{err}</div>}
+    <button className="btn" style={{width:"100%",padding:"13px",margin:"16px 0 12px"}} onClick={submit} disabled={busy}>{busy?"가입 중…":"가입하고 시작하기"}</button>
+    <div style={{textAlign:"center",fontSize:13,color:"var(--muted)"}}>이미 계정이 있으신가요? <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={goLogin}>로그인</span></div>
+  </AuthShell>;
+}
+function mapAuthError(e){
+  const c=e&&e.code||"";
+  if(c.includes("email-already-in-use")) return "이미 가입된 이메일입니다.";
+  if(c.includes("invalid-email")) return "이메일 형식이 올바르지 않습니다.";
+  if(c.includes("weak-password")) return "비밀번호는 6자 이상이어야 합니다.";
+  if(c.includes("wrong-password")||c.includes("invalid-credential")) return "이메일 또는 비밀번호가 올바르지 않습니다.";
+  if(c.includes("user-not-found")) return "등록되지 않은 계정입니다.";
+  if(c.includes("too-many-requests")) return "잠시 후 다시 시도해 주세요.";
+  return "처리 중 오류가 발생했습니다. ("+c+")";
+}
+
+/* =====================================================
+   MAIN SHELL
+===================================================== */
+const MENU=[
+  {key:"dashboard",label:"대시보드",icon:"▦"},
+  {key:"projects",label:"프로젝트",icon:"▥"},
+  {key:"weekly",label:"주간업무",icon:"✎"},
+  {key:"members",label:"팀원",icon:"♟"},
+];
+function Main({user,profile,data}){
+  const [tab,setTab]=useState("dashboard");
+  const [showProfile,setShowProfile]=useState(false);
+  const [isMobile,setIsMobile]=useState(window.innerWidth<860);
+  useEffect(()=>{
+    const onR=()=>setIsMobile(window.innerWidth<860);
+    window.addEventListener("resize",onR); return ()=>window.removeEventListener("resize",onR);
+  },[]);
+  const content=(()=>{
+    switch(tab){
+      case "projects": return <Projects profile={profile} data={data}/>;
+      case "weekly": return <Weekly profile={profile} data={data}/>;
+      case "members": return <Members profile={profile} data={data}/>;
+      default: return <Dashboard profile={profile} data={data} go={setTab}/>;
+    }
+  })();
+  const logout=()=>firebase.auth().signOut();
+  const profileModal=showProfile&&<ProfileModal profile={profile} onClose={()=>setShowProfile(false)}/>;
+
+  if(isMobile){
+    return <div style={{minHeight:"100vh",paddingBottom:64}}>
+      <header style={{position:"sticky",top:0,zIndex:20,background:"var(--navy-2)",borderBottom:"1px solid var(--line)",
+        padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:16}}>Project Management</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <button className="btn ghost sm" onClick={()=>setShowProfile(true)}>{profile.rank} {profile.name}</button>
+          <button className="btn ghost sm" onClick={logout}>로그아웃</button>
+        </div>
+      </header>
+      <main style={{padding:16}}>{content}</main>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:20,background:"var(--navy-2)",borderTop:"1px solid var(--line)",display:"flex"}}>
+        {MENU.map(m=>(
+          <button key={m.key} onClick={()=>setTab(m.key)} style={{flex:1,background:"none",border:"none",padding:"10px 0",
+            color:tab===m.key?"var(--accent)":"var(--muted)",fontSize:11}}>
+            <div style={{fontSize:18,lineHeight:1}}>{m.icon}</div><div style={{marginTop:3}}>{m.label}</div>
+          </button>
+        ))}
+      </nav>
+      {profileModal}
+    </div>;
+  }
+  return <div style={{minHeight:"100vh",display:"flex"}}>
+    <aside style={{width:230,flexShrink:0,background:"var(--navy-2)",borderRight:"1px solid var(--line)",
+      padding:"22px 16px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh"}}>
+      <div style={{padding:"0 6px 18px"}}>
+        <div style={{fontSize:18}}>Project Management</div>
+        <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>이레테크 설계팀</div>
+      </div>
+      <nav style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+        {MENU.map(m=>(
+          <button key={m.key} onClick={()=>setTab(m.key)} style={{display:"flex",alignItems:"center",gap:10,textAlign:"left",
+            background:tab===m.key?"var(--navy-3)":"transparent",color:tab===m.key?"var(--text)":"var(--muted)",
+            border:"none",borderRadius:10,padding:"11px 12px",fontSize:14}}>
+            <span style={{color:tab===m.key?"var(--accent)":"var(--muted)"}}>{m.icon}</span>{m.label}
+          </button>
+        ))}
+      </nav>
+      <div style={{borderTop:"1px solid var(--line)",paddingTop:14}}>
+        <div style={{fontSize:13}}>{profile.rank} {profile.name}</div>
+        <div style={{fontSize:11,color:"var(--muted)",margin:"2px 0 10px"}}>{profile.isAdmin?"관리자":"팀원"} · {profile.email}</div>
+        <button className="btn ghost sm" style={{width:"100%",marginBottom:6}} onClick={()=>setShowProfile(true)}>내 정보 수정</button>
+        <button className="btn ghost sm" style={{width:"100%"}} onClick={logout}>로그아웃</button>
+      </div>
+    </aside>
+    <main style={{flex:1,padding:"28px 32px",maxWidth:1500}}>{content}</main>
+    {profileModal}
+  </div>;
+}
+
+function PageTitle({title,sub,right}){
+  return <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:22,flexWrap:"wrap",gap:12}}>
+    <div>
+      <h2 style={{margin:0,fontSize:24}}>{title}</h2>
+      {sub&&<div style={{color:"var(--muted)",fontSize:13,marginTop:4}}>{sub}</div>}
+    </div>
+    {right}
+  </div>;
+}
+
+/* =====================================================
+   DASHBOARD
+===================================================== */
+function projectProgress(p){
+  const cols=buildColumns(p.startMonth,p.endMonth);
+  const total=cols.length*(p.tasks||[]).length;
+  if(!total) return 0;
+  let filled=0;
+  (p.tasks||[]).forEach(t=>{
+    const cells=(p.schedule&&p.schedule[t.id])||{};
+    cols.forEach(c=>{ if(cells[cellKey(c.m,c.wk)]) filled++; });
+  });
+  return Math.round(filled/total*100);
+}
+/* 일정표 전체기간 중 현재 날짜의 경과 비율(%).
+   프로젝트는 월(startMonth~endMonth)만 가지므로, 시작월~종료월을 가까운 연도로 환산해 기간을 구한다. */
+function timeProgress(p){
+  if(!p.startMonth||!p.endMonth) return 0;
+  const now=new Date(); now.setHours(0,0,0,0);
+  const y=now.getFullYear();
+  // 종료월이 시작월보다 작으면 연도를 넘긴 것으로 간주
+  const monthsSpan=(p.endMonth>=p.startMonth)?(p.endMonth-p.startMonth):(12-p.startMonth+p.endMonth);
+  // 현재 날짜가 속할 가능성이 높은 연도 추정: 올해 시작 기준으로 ±1년 중 now 를 포함하는 구간 선택
+  const candidates=[y-1,y,y+1].map(sy=>{
+    const start=new Date(sy,p.startMonth-1,1);
+    const end=new Date(sy,p.startMonth-1+monthsSpan+1,0); // 종료월 말일
+    return {start,end};
+  });
+  let range=candidates.find(c=>now>=c.start&&now<=c.end);
+  if(!range){
+    // 포함 구간이 없으면 now 와 가장 가까운 구간 선택
+    range=candidates.reduce((best,c)=>{
+      const d=Math.min(Math.abs(now-c.start),Math.abs(now-c.end));
+      return (!best||d<best.d)?{...c,d}:best;
+    },null);
+  }
+  const span=range.end-range.start;
+  if(span<=0) return 0;
+  const pct=Math.round((now-range.start)/span*100);
+  return Math.max(0,Math.min(100,pct));
+}
+function Dashboard({profile,data,go}){
+  const projects=Object.entries(data.projects||{}).map(([id,p])=>({id,...p}));
+  const members=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+
+  if(projects.length===0){
+    return <div>
+      <PageTitle title="대시보드"/>
+      <div className="card" style={{padding:"60px 24px",textAlign:"center"}}>
+        <div style={{fontSize:34,marginBottom:12}}>▥</div>
+        <div style={{fontSize:17,marginBottom:6}}>아직 등록된 프로젝트가 없습니다</div>
+        <div style={{color:"var(--muted)",fontSize:14}}>
+          {profile.isAdmin?"프로젝트 메뉴에서 첫 프로젝트를 추가해 보세요.":"관리자가 프로젝트를 등록하면 여기에 표시됩니다."}
+        </div>
+        {profile.isAdmin&&<button className="btn" style={{marginTop:18}} onClick={()=>go("projects")}>프로젝트 추가하기</button>}
+      </div>
+    </div>;
+  }
+  const avg=Math.round(projects.reduce((a,p)=>a+timeProgress(p),0)/projects.length);
+  const stat=(label,val,sub)=>(
+    <div className="card" style={{padding:18,flex:"1 1 150px"}}>
+      <div style={{color:"var(--muted)",fontSize:12}}>{label}</div>
+      <div style={{fontSize:28,marginTop:6}}>{val}</div>
+      {sub&&<div style={{color:"var(--muted)",fontSize:12,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+  return <div>
+    <PageTitle title="대시보드" sub={"등록된 프로젝트 "+projects.length+"건"}/>
+    <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:22}}>
+      {stat("전체 프로젝트",projects.length+"건")}
+      {stat("평균 진행률",avg+"%")}
+      {stat("등록 팀원",members.length+"명")}
+    </div>
+    <div className="card" style={{padding:18}}>
+      <div style={{fontSize:15,marginBottom:4}}>프로젝트 진행 현황</div>
+      <div style={{fontSize:12,color:"var(--muted)",marginBottom:14}}>전체 기간 중 현재 날짜 기준 경과율</div>
+      {projects.map(p=>{
+        const prog=timeProgress(p);
+        return <div key={p.id} style={{padding:"10px 0",borderBottom:"1px solid var(--line)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontSize:14}}>{p.name} <span className="tag">{p.client||"발주처 미정"}</span></span>
+            <span style={{color:"var(--accent)"}}>{prog}%</span>
+          </div>
+          <div style={{height:8,background:"var(--navy-3)",borderRadius:5,overflow:"hidden"}}>
+            <div style={{height:"100%",width:prog+"%",background:"linear-gradient(90deg,var(--accent),var(--accent-2))"}}/>
+          </div>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{MONTH_NAMES[p.startMonth-1]} ~ {MONTH_NAMES[p.endMonth-1]}</div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+/* =====================================================
+   PROJECTS (PDF형 일정표)
+===================================================== */
+function Projects({profile,data}){
+  const projects=Object.entries(data.projects||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const [editing,setEditing]=useState(null);
+  const [activeId,setActiveId]=useState(null);
+  const isAdmin=profile.isAdmin;
+
+  const active=projects.find(p=>p.id===activeId)||projects[0]||null;
+
+  const saveHeader=async(form)=>{
+    if(form.id){
+      await firebase.database().ref(DATA_PATH+"/projects/"+form.id).update({
+        name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,note:form.note
+      });
+    }else{
+      const id=uid();
+      await firebase.database().ref(DATA_PATH+"/projects/"+id).set({
+        name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,
+        note:form.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
+        createdAt:Date.now(),
+        tasks:DEFAULT_TASKS.map(n=>({id:uid(),name:n})),
+        schedule:{}
+      });
+      setActiveId(id);
+    }
+    setEditing(null);
+  };
+  const delProject=async(id)=>{
+    if(!confirm("이 프로젝트를 삭제할까요?")) return;
+    await firebase.database().ref(DATA_PATH+"/projects/"+id).remove();
+    if(activeId===id) setActiveId(null);
+  };
+
+  return <div>
+    <PageTitle title="프로젝트" sub="공정별 일정표"
+      right={isAdmin&&<button className="btn" onClick={()=>setEditing("new")}>+ 프로젝트 추가</button>}/>
+
+    {projects.length===0&&<div className="card" style={{padding:"50px 24px",textAlign:"center",color:"var(--muted)"}}>
+      등록된 프로젝트가 없습니다. {isAdmin?"오른쪽 위에서 추가하세요.":""}
+    </div>}
+
+    {projects.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+      {projects.map(p=>(
+        <button key={p.id} onClick={()=>setActiveId(p.id)} style={{
+          border:"1px solid "+(active&&active.id===p.id?"var(--accent)":"var(--line)"),
+          background:active&&active.id===p.id?"var(--accent)":"transparent",
+          color:active&&active.id===p.id?"#1a0d00":"var(--muted)",
+          borderRadius:10,padding:"8px 14px",fontSize:13}}>{p.name}</button>
+      ))}
+    </div>}
+
+    {active&&<ScheduleTable key={active.id} project={active} profile={profile}
+      onEditHeader={()=>setEditing({...active})} onDelete={()=>delProject(active.id)}/>}
+
+    {editing&&<HeaderModal project={editing==="new"?null:editing} onSave={saveHeader} onClose={()=>setEditing(null)}/>}
+  </div>;
+}
+
+function HeaderModal({project,onSave,onClose}){
+  const [f,setF]=useState({
+    id:project?.id||"", name:project?.name||"", client:project?.client||"",
+    startMonth:project?.startMonth||7, endMonth:project?.endMonth||12,
+    note:project?.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다."
+  });
+  const set=(k,v)=>setF(s=>({...s,[k]:v}));
+  return <Modal onClose={onClose} title={project?"프로젝트 정보 수정":"새 프로젝트"}>
+    <label className="lbl">프로젝트명</label>
+    <input className="field" style={{marginBottom:12}} value={f.name} onChange={e=>set("name",e.target.value)}/>
+    <label className="lbl">발주처</label>
+    <input className="field" style={{marginBottom:12}} value={f.client} onChange={e=>set("client",e.target.value)}/>
+    <div style={{display:"flex",gap:12}}>
+      <div style={{flex:1}}>
+        <label className="lbl">시작 월</label>
+        <select className="field" value={f.startMonth} onChange={e=>set("startMonth",Number(e.target.value))}>
+          {MONTH_NAMES.map((n,i)=><option key={i} value={i+1}>{n}</option>)}
+        </select>
+      </div>
+      <div style={{flex:1}}>
+        <label className="lbl">종료 월</label>
+        <select className="field" value={f.endMonth} onChange={e=>set("endMonth",Number(e.target.value))}>
+          {MONTH_NAMES.map((n,i)=><option key={i} value={i+1}>{n}</option>)}
+        </select>
+      </div>
+    </div>
+    <label className="lbl" style={{marginTop:12}}>비고</label>
+    <input className="field" value={f.note} onChange={e=>set("note",e.target.value)}/>
+    <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end"}}>
+      <button className="btn ghost" onClick={onClose}>취소</button>
+      <button className="btn" onClick={()=>{ if(!f.name.trim()){alert("프로젝트명을 입력하세요.");return;} onSave(f);}}>저장</button>
+    </div>
+  </Modal>;
+}
+
+function ScheduleTable({project,profile,onEditHeader,onDelete}){
+  // 일정표 전체 수정 권한: 관리자 또는 팀원(담당자) 모두 가능
+  const canEdit = profile.isAdmin || true;
+  const ref=firebase.database().ref(DATA_PATH+"/projects/"+project.id);
+  const cols=buildColumns(project.startMonth,project.endMonth);
+  const tasks=project.tasks||[];
+  const prog=projectProgress(project);
+
+  // 일정 셀은 로컬 draft 에 모으고, "저장" 버튼으로 DB 반영
+  const [draft,setDraft]=useState(project.schedule||{});
+  const [dirty,setDirty]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const remoteJSON=useRef(JSON.stringify(project.schedule||{}));
+  // 외부(다른 사용자) 변경이 들어왔고, 내가 편집 중이 아닐 때만 draft 동기화
+  useEffect(()=>{
+    const incoming=JSON.stringify(project.schedule||{});
+    if(incoming!==remoteJSON.current && !dirty){
+      remoteJSON.current=incoming;
+      setDraft(project.schedule||{});
+    }
+  });
+  const schedule=draft;
+
+  // 월별 그룹 (colSpan 계산)
+  const monthGroups=[];
+  cols.forEach(c=>{
+    const last=monthGroups[monthGroups.length-1];
+    if(last&&last.m===c.m) last.span++;
+    else monthGroups.push({m:c.m,span:1});
+  });
+
+  const painting=useRef(null); // {mode:true/false}
+  const setCell=(taskId,m,wk,val)=>{
+    setDraft(prev=>{
+      const next={...prev};
+      const row={...(next[taskId]||{})};
+      if(val) row[cellKey(m,wk)]=true; else delete row[cellKey(m,wk)];
+      next[taskId]=row;
+      return next;
+    });
+    setDirty(true);
+  };
+  const getCell=(taskId,m,wk)=>!!(schedule[taskId]&&schedule[taskId][cellKey(m,wk)]);
+
+  const onCellDown=(taskId,m,wk)=>{
+    if(!canEdit) return;
+    const cur=getCell(taskId,m,wk);
+    painting.current={mode:!cur};
+    setCell(taskId,m,wk,!cur);
+  };
+  const onCellEnter=(taskId,m,wk)=>{
+    if(!canEdit||!painting.current) return;
+    setCell(taskId,m,wk,painting.current.mode);
+  };
+  useEffect(()=>{
+    const up=()=>{painting.current=null;};
+    window.addEventListener("mouseup",up);
+    return ()=>window.removeEventListener("mouseup",up);
+  },[]);
+
+  const saveSchedule=async()=>{
+    setSaving(true);
+    try{
+      const clean={};
+      Object.keys(draft).forEach(tid=>{
+        const row={}; const src=draft[tid]||{};
+        Object.keys(src).forEach(k=>{ if(src[k]) row[k]=true; });
+        if(Object.keys(row).length) clean[tid]=row;
+      });
+      await ref.child("schedule").set(clean);
+      remoteJSON.current=JSON.stringify(clean);
+      setDirty(false);
+    }catch(e){ alert("저장 중 오류가 발생했습니다."); }
+    setSaving(false);
+  };
+  const revertSchedule=()=>{
+    setDraft(project.schedule||{});
+    remoteJSON.current=JSON.stringify(project.schedule||{});
+    setDirty(false);
+  };
+
+  const addTask=()=>{
+    const name=prompt("추가할 공정 이름");
+    if(!name||!name.trim()) return;
+    ref.child("tasks").set([...tasks,{id:uid(),name:name.trim()}]);
+  };
+  const delTask=(taskId)=>{
+    if(!confirm("이 공정을 삭제할까요?")) return;
+    ref.child("tasks").set(tasks.filter(t=>t.id!==taskId));
+    ref.child("schedule/"+taskId).remove();
+  };
+  const renameTask=(taskId,cur)=>{
+    if(!profile.isAdmin) return;
+    const name=prompt("공정 이름 수정",cur);
+    if(!name||!name.trim()) return;
+    ref.child("tasks").set(tasks.map(t=>t.id===taskId?{...t,name:name.trim()}:t));
+  };
+  const setNote=(v)=>ref.child("note").set(v);
+
+  const C=34;          // 셀 너비 (확대)
+  const CH=34;         // 셀 높이 (확대)
+  const labelW=190;    // 공정 라벨 폭 (확대)
+  const cellBorder="1px solid var(--line)";
+  const barBg="linear-gradient(90deg,var(--accent),var(--accent-2))"; // 일정 바 색상(원복)
+  // draft 기준 진행률
+  const dprog=(()=>{
+    const total=cols.length*tasks.length;
+    if(!total) return 0;
+    let filled=0;
+    tasks.forEach(t=>{ const cells=draft[t.id]||{}; cols.forEach(c=>{ if(cells[cellKey(c.m,c.wk)]) filled++; }); });
+    return Math.round(filled/total*100);
+  })();
+
+  return <div className="card" style={{padding:0,overflow:"hidden"}}>
+    {/* 헤더 */}
+    <div style={{padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--navy-3)",flexWrap:"wrap",gap:10}}>
+      <div>
+        <div style={{fontSize:17}}>{project.name}</div>
+        <div style={{fontSize:12,color:"var(--muted)"}}>{project.client||"발주처 미정"} · {MONTH_NAMES[project.startMonth-1]} ~ {MONTH_NAMES[project.endMonth-1]}</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:11,color:"var(--muted)"}}>진행률</div>
+          <div style={{fontSize:18,color:"var(--accent)"}}>{dprog}%</div>
+        </div>
+        {profile.isAdmin&&<>
+          <button className="btn ghost sm" onClick={onEditHeader}>수정</button>
+          <button className="btn danger sm" onClick={onDelete}>삭제</button>
+        </>}
+      </div>
+    </div>
+
+    <div style={{padding:"4px 0 14px"}}>
+      <div style={{display:"flex",gap:8,padding:"10px 18px",alignItems:"center",flexWrap:"wrap"}}>
+        {profile.isAdmin&&<button className="btn ghost sm" onClick={addTask}>+ 공정 추가</button>}
+        <span style={{fontSize:12,color:"var(--muted)"}}>
+          셀을 클릭·드래그해 일정을 칠하거나 지운 뒤 저장하세요.{profile.isAdmin?" 공정명 클릭 시 이름 수정.":""}
+        </span>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
+          {dirty&&<span style={{fontSize:12,color:"var(--yellow)"}}>● 저장되지 않은 변경</span>}
+          {dirty&&<button className="btn ghost sm" onClick={revertSchedule} disabled={saving}>되돌리기</button>}
+          <button className="btn sm" onClick={saveSchedule} disabled={!dirty||saving}
+            style={{opacity:(!dirty||saving)?.5:1}}>{saving?"저장 중…":"저장"}</button>
+        </div>
+      </div>
+
+      <div style={{overflowX:"auto",padding:"0 14px"}}>
+        <div style={{textAlign:"center",fontSize:20,padding:"6px 0 14px",letterSpacing:2}}>설계 일정표</div>
+        <table style={{borderCollapse:"collapse",userSelect:"none",fontSize:13,margin:"0 auto"}}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={{border:cellBorder,width:labelW,minWidth:labelW,padding:"7px 12px",textAlign:"left",background:"var(--navy-3)",fontSize:13}}>공정 \ 기간</th>
+              {monthGroups.map((g,i)=>(
+                <th key={i} colSpan={g.span} style={{border:cellBorder,padding:"6px 0",background:"var(--navy-3)",fontSize:13}}>{MONTH_NAMES[g.m-1]}</th>
+              ))}
+            </tr>
+            <tr>
+              {cols.map((c,i)=>(
+                <th key={i} style={{border:cellBorder,width:C,minWidth:C,padding:"4px 0",color:"var(--muted)",fontWeight:600,background:"var(--navy-2)",fontSize:12}}>{c.wk}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.map(t=>(
+              <tr key={t.id}>
+                <td style={{border:cellBorder,padding:"7px 12px",whiteSpace:"nowrap",background:"var(--navy-2)",fontSize:13}}>
+                  <span onClick={()=>renameTask(t.id,t.name)} style={{cursor:profile.isAdmin?"pointer":"default"}}>{t.name}</span>
+                  {profile.isAdmin&&<button onClick={()=>delTask(t.id)} style={{marginLeft:8,background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:14}}>×</button>}
+                </td>
+                {cols.map((c,i)=>{
+                  const on=getCell(t.id,c.m,c.wk);
+                  return <td key={i}
+                    onMouseDown={()=>onCellDown(t.id,c.m,c.wk)}
+                    onMouseEnter={()=>onCellEnter(t.id,c.m,c.wk)}
+                    style={{border:cellBorder,width:C,height:CH,
+                      background:on?barBg:"transparent",
+                      cursor:canEdit?"pointer":"default"}}/>;
+                })}
+              </tr>
+            ))}
+            {/* 빈 줄 2개 (원본 양식 느낌) */}
+            {[0,1].map(r=>(
+              <tr key={"e"+r}>
+                <td style={{border:cellBorder,height:CH,background:"var(--navy-2)"}}></td>
+                {cols.map((c,i)=><td key={i} style={{border:cellBorder,width:C,height:CH}}></td>)}
+              </tr>
+            ))}
+            {/* 비고 */}
+            <tr>
+              <td style={{border:cellBorder,padding:"9px 12px",textAlign:"center",background:"var(--navy-3)",fontSize:13}}>비 고</td>
+              <td colSpan={cols.length} style={{border:cellBorder,padding:"7px 12px"}}>
+                {profile.isAdmin
+                  ? <input value={project.note||""} onChange={e=>setNote(e.target.value)}
+                      style={{width:"100%",background:"transparent",border:"none",color:"var(--text)",fontSize:13,outline:"none",fontWeight:600}}/>
+                  : <span style={{color:"var(--muted)"}}>{project.note}</span>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>;
+}
+
+/* =====================================================
+   WEEKLY
+===================================================== */
+function Weekly({profile,data}){
+  const [offset,setOffset]=useState(0);
+  const base=new Date(); base.setDate(base.getDate()+offset*7);
+  const wk=weekKey(base);
+  const label=weekLabel(base);
+  const members=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const weekData=(data.weekly&&data.weekly[wk])||{};
+
+  const [draft,setDraft]=useState("");
+  const composing=useRef(false);
+  const myKey=profile.uid;
+  useEffect(()=>{ setDraft((weekData[myKey]&&weekData[myKey].text)||""); },[wk]);
+
+  const save=()=>{
+    firebase.database().ref(DATA_PATH+"/weekly/"+wk+"/"+myKey).set({
+      text:draft, name:profile.name, rank:profile.rank, updatedAt:Date.now()
+    });
+  };
+  const editText=(memberId,text)=>{
+    const m=members.find(x=>x.id===memberId);
+    firebase.database().ref(DATA_PATH+"/weekly/"+wk+"/"+memberId).set({
+      text, name:m?m.name:"", rank:m?m.rank:"", updatedAt:Date.now()
+    });
+  };
+
+  return <div>
+    <PageTitle title="주간업무"
+      right={<div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button className="btn ghost sm" onClick={()=>setOffset(o=>o-1)}>◂ 이전주</button>
+        <button className="btn ghost sm" onClick={()=>setOffset(0)}>이번주</button>
+        <button className="btn ghost sm" onClick={()=>setOffset(o=>o+1)}>다음주 ▸</button>
+      </div>}/>
+    <div style={{fontSize:14,color:"var(--accent-2)",marginBottom:18}}>{label}</div>
+
+    <div className="card" style={{padding:18,marginBottom:18}}>
+      <div style={{fontSize:14,marginBottom:10}}>{profile.rank} {profile.name} <span className="tag">내 업무</span></div>
+      <textarea className="field" rows={4} maxLength={300} value={draft}
+        placeholder="이번 주 업무 내용을 자유롭게 작성하세요 (200자 내외)"
+        onCompositionStart={()=>{composing.current=true;}}
+        onCompositionEnd={(e)=>{composing.current=false;setDraft(e.target.value);}}
+        onChange={(e)=>{ setDraft(e.target.value); }}
+        style={{resize:"vertical",lineHeight:1.6}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+        <span style={{fontSize:12,color:"var(--muted)"}}>{draft.length} / 300자</span>
+        <button className="btn" onClick={save}>저장</button>
+      </div>
+    </div>
+
+    <div style={{fontSize:14,color:"var(--muted)",margin:"0 0 10px 2px"}}>팀 전체 주간업무</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
+      {members.map(m=>{
+        const rec=weekData[m.id];
+        const canEdit=profile.isAdmin;
+        return <div key={m.id} className="card" style={{padding:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <span style={{fontSize:14}}>{m.rank} {m.name}</span>
+            {m.id===profile.uid&&<span className="tag" style={{color:"var(--accent)"}}>나</span>}
+          </div>
+          {canEdit && m.id!==profile.uid
+            ? <textarea className="field" rows={3} maxLength={300} value={(rec&&rec.text)||""}
+                onChange={e=>editText(m.id,e.target.value)} style={{resize:"vertical",lineHeight:1.6,fontSize:13}}/>
+            : <div style={{fontSize:13,color:rec&&rec.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.6,minHeight:40}}>
+                {rec&&rec.text?rec.text:"작성된 내용이 없습니다."}
+              </div>}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+/* =====================================================
+   MEMBERS
+===================================================== */
+function Members({profile,data}){
+  const members=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+
+  const removeMember=async(m)=>{
+    const isMemberAdmin=ADMIN_EMAILS.includes((m.email||"").toLowerCase());
+    if(isMemberAdmin){ alert("관리자 계정은 방출할 수 없습니다."); return; }
+    if(!confirm(m.rank+" "+m.name+" 님을 팀에서 방출할까요?\n팀원 목록과 주간업무 기록에서 제거됩니다.")) return;
+    try{
+      // 팀원 레코드 제거
+      await firebase.database().ref(DATA_PATH+"/members/"+m.id).remove();
+      // 주간업무 중 해당 팀원 기록 정리
+      const wkSnap=await firebase.database().ref(DATA_PATH+"/weekly").get();
+      if(wkSnap.exists()){
+        const updates={};
+        Object.keys(wkSnap.val()).forEach(week=>{ updates[week+"/"+m.id]=null; });
+        await firebase.database().ref(DATA_PATH+"/weekly").update(updates);
+      }
+    }catch(e){ alert("방출 처리 중 오류가 발생했습니다."); }
+  };
+
+  return <div>
+    <PageTitle title="팀원" sub={"설계팀 팀원 "+members.length+"명"}/>
+    {members.length===0&&<div className="card" style={{padding:"50px 24px",textAlign:"center",color:"var(--muted)"}}>
+      아직 등록된 팀원이 없습니다. 회원가입하면 자동으로 추가됩니다.
+    </div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:16}}>
+      {members.map(m=>{
+        const isMemberAdmin=ADMIN_EMAILS.includes((m.email||"").toLowerCase());
+        const canRemove=profile.isAdmin && !isMemberAdmin && m.id!==profile.uid;
+        return <div key={m.id} className="card" style={{padding:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:16}}>{m.name} <span className="tag">{m.rank}</span></div>
+              <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>{m.email}</div>
+            </div>
+            {isMemberAdmin&&<span className="tag" style={{color:"var(--accent)"}}>관리자</span>}
+          </div>
+          {canRemove&&<div style={{marginTop:14,textAlign:"right"}}>
+            <button className="btn danger sm" onClick={()=>removeMember(m)}>방출</button>
+          </div>}
+        </div>;
+      })}
+    </div>
+    {profile.isAdmin&&members.length>0&&<div style={{fontSize:11,color:"var(--muted)",marginTop:14}}>
+      방출 시 팀원 목록과 주간업무에서 제거됩니다. 로그인 계정 자체는 별도로 유지되므로, 완전 차단이 필요하면 Firebase 콘솔에서 해당 사용자를 삭제하세요.
+    </div>}
+  </div>;
+}
+
+/* ---------------- ProfileModal (내 정보 수정) ---------------- */
+function ProfileModal({profile,onClose}){
+  const [name,setName]=useState(profile.name||"");
+  const [rank,setRank]=useState(profile.rank||"사원");
+  const [pw,setPw]=useState("");
+  const [pw2,setPw2]=useState("");
+  const [curPw,setCurPw]=useState("");
+  const [msg,setMsg]=useState(""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+
+  const save=async()=>{
+    setErr(""); setMsg("");
+    if(!name.trim()){ setErr("이름을 입력하세요."); return; }
+    setBusy(true);
+    try{
+      // 이름/직급 저장 (관리자는 직급 이사 고정)
+      const newRank=profile.isAdmin?"이사":rank;
+      await firebase.database().ref(DATA_PATH+"/members/"+profile.uid).update({name:name.trim(),rank:newRank});
+      const u=firebase.auth().currentUser;
+      if(u&&u.displayName!==name.trim()) await u.updateProfile({displayName:name.trim()});
+
+      // 비밀번호 변경 (입력 시에만)
+      if(pw){
+        if(pw.length<6){ setErr("새 비밀번호는 6자 이상이어야 합니다."); setBusy(false); return; }
+        if(pw!==pw2){ setErr("새 비밀번호가 일치하지 않습니다."); setBusy(false); return; }
+        if(!curPw){ setErr("비밀번호 변경에는 현재 비밀번호가 필요합니다."); setBusy(false); return; }
+        const cred=firebase.auth.EmailAuthProvider.credential(u.email,curPw);
+        await u.reauthenticateWithCredential(cred);
+        await u.updatePassword(pw);
+      }
+      setMsg("저장되었습니다.");
+      setPw(""); setPw2(""); setCurPw("");
+    }catch(e){
+      const c=e&&e.code||"";
+      if(c.includes("wrong-password")||c.includes("invalid-credential")) setErr("현재 비밀번호가 올바르지 않습니다.");
+      else if(c.includes("weak-password")) setErr("새 비밀번호는 6자 이상이어야 합니다.");
+      else if(c.includes("requires-recent-login")) setErr("보안을 위해 다시 로그인한 뒤 시도해 주세요.");
+      else setErr("저장 중 오류가 발생했습니다. ("+c+")");
+    }
+    setBusy(false);
+  };
+
+  return <Modal onClose={onClose} title="내 정보 수정">
+    <label className="lbl">이메일</label>
+    <input className="field" style={{marginBottom:14,opacity:.7}} value={profile.email} disabled/>
+    <label className="lbl">이름</label>
+    <input className="field" style={{marginBottom:14}} value={name} onChange={e=>setName(e.target.value)}/>
+    <label className="lbl">직급</label>
+    <select className="field" style={{marginBottom:14}} value={profile.isAdmin?"이사":rank}
+      onChange={e=>setRank(e.target.value)} disabled={profile.isAdmin}>
+      {RANKS.map(r=><option key={r} value={r}>{r}</option>)}
+    </select>
+    {profile.isAdmin&&<div style={{fontSize:11,color:"var(--muted)",margin:"-8px 0 14px 2px"}}>관리자 직급은 이사로 고정됩니다.</div>}
+
+    <div style={{borderTop:"1px solid var(--line)",margin:"4px 0 14px"}}/>
+    <div style={{fontSize:13,marginBottom:10}}>비밀번호 변경 <span style={{fontSize:11,color:"var(--muted)"}}>(변경할 때만 입력)</span></div>
+    <label className="lbl">현재 비밀번호</label>
+    <input className="field" style={{marginBottom:12}} type="password" value={curPw} onChange={e=>setCurPw(e.target.value)} autoComplete="current-password"/>
+    <label className="lbl">새 비밀번호 (6자 이상)</label>
+    <input className="field" style={{marginBottom:12}} type="password" value={pw} onChange={e=>setPw(e.target.value)} autoComplete="new-password"/>
+    <label className="lbl">새 비밀번호 확인</label>
+    <input className="field" type="password" value={pw2} onChange={e=>setPw2(e.target.value)} autoComplete="new-password"/>
+
+    {err&&<div style={{color:"var(--red)",fontSize:13,marginTop:12}}>{err}</div>}
+    {msg&&<div style={{color:"var(--green)",fontSize:13,marginTop:12}}>{msg}</div>}
+    <div style={{display:"flex",gap:10,marginTop:18,justifyContent:"flex-end"}}>
+      <button className="btn ghost" onClick={onClose}>닫기</button>
+      <button className="btn" onClick={save} disabled={busy}>{busy?"저장 중…":"저장"}</button>
+    </div>
+  </Modal>;
+}
+
+/* ---------------- Modal ---------------- */
+function Modal({title,children,onClose}){
+  return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(5,8,18,.7)",zIndex:50,
+    display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <div onClick={e=>e.stopPropagation()} className="card" style={{width:"100%",maxWidth:440,padding:24}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div style={{fontSize:18}}>{title}</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"var(--muted)",fontSize:22,cursor:"pointer"}}>×</button>
+      </div>
+      {children}
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
