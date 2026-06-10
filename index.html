@@ -908,7 +908,7 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
   const setNote=(v)=>ref.child("note").set(v);
 
   const C=34;          // 셀 너비 (확대)
-  const CH=34;         // 셀 높이 (확대)
+  const CH=24;         // 셀 높이 (30% 축소)
   const labelW=190;    // 공정 라벨 폭 (확대)
   const cellBorder="1px solid var(--line)";
   const barBg="linear-gradient(90deg,var(--accent),var(--accent-2))"; // 일정 바 색상(원복)
@@ -923,11 +923,11 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
 
   return <div className="card" style={{padding:0,overflow:"hidden"}}>
     {/* 헤더 */}
-    <div style={{padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--navy-3)",flexWrap:"wrap",gap:10}}>
+    <div style={{padding:"11px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--navy-3)",flexWrap:"wrap",gap:10}}>
       <div>
         <div style={{fontSize:17}}>{project.name}</div>
         <div style={{fontSize:12,color:"var(--muted)"}}>{project.client||"발주처 미정"} · {MONTH_NAMES[project.startMonth-1]} ~ {MONTH_NAMES[project.endMonth-1]}</div>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
           {assigned.length===0&&<span style={{fontSize:11,color:"var(--muted)"}}>배정된 팀원 없음</span>}
           {assigned.map(mid=>{
             const m=(members||[]).find(x=>x.id===mid);
@@ -935,10 +935,10 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
           })}
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:12}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
         <div style={{textAlign:"right"}}>
-          <div style={{fontSize:11,color:"var(--muted)"}}>공정율</div>
-          <div style={{fontSize:18,color:"var(--accent)"}}>{dprog}%</div>
+          <div style={{fontSize:10,color:"var(--muted)"}}>공정율</div>
+          <div style={{fontSize:15,color:"var(--accent)"}}>{dprog}%</div>
         </div>
         {profile.isAdmin&&<>
           <button className="btn ghost sm" onClick={onEditHeader}>수정</button>
@@ -947,26 +947,26 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
       </div>
     </div>
 
-    <div style={{padding:"4px 0 14px"}}>
-      <div style={{display:"flex",gap:8,padding:"10px 18px",alignItems:"center",flexWrap:"wrap"}}>
+    <div style={{padding:"3px 0 10px"}}>
+      <div style={{display:"flex",gap:8,padding:"7px 13px",alignItems:"center",flexWrap:"wrap"}}>
         {profile.isAdmin&&<button className="btn ghost sm" onClick={addTask}>+ 공정 추가</button>}
         {canEdit
-          ? <span style={{fontSize:12,color:"var(--muted)"}}>
+          ? <span style={{fontSize:11,color:"var(--muted)"}}>
               셀을 클릭·드래그해 일정을 칠하거나 지운 뒤 저장하세요.{profile.isAdmin?" 공정명 클릭 시 이름 수정.":""}
             </span>
-          : <span style={{fontSize:12,color:"var(--muted)"}}>
+          : <span style={{fontSize:11,color:"var(--muted)"}}>
               조회 전용 — 이 프로젝트에 배정된 팀원만 수정할 수 있습니다.
             </span>}
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
-          {dirty&&<span style={{fontSize:12,color:"var(--yellow)"}}>● 저장되지 않은 변경</span>}
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          {dirty&&<span style={{fontSize:11,color:"var(--yellow)"}}>● 저장되지 않은 변경</span>}
           {dirty&&<button className="btn ghost sm" onClick={revertSchedule} disabled={saving}>되돌리기</button>}
           {canEdit&&<button className="btn sm" onClick={saveSchedule} disabled={!dirty||saving}
             style={{opacity:(!dirty||saving)?.5:1}}>{saving?"저장 중…":"저장"}</button>}
         </div>
       </div>
 
-      <div style={{overflowX:"auto",padding:"0 14px"}}>
-        <div style={{textAlign:"center",fontSize:20,padding:"6px 0 14px",letterSpacing:2}}>설계 일정표</div>
+      <div style={{overflowX:"auto",padding:"0 10px"}}>
+        <div style={{textAlign:"center",fontSize:18,padding:"4px 0 10px",letterSpacing:2}}>설계 일정표</div>
         <table style={{borderCollapse:"collapse",userSelect:"none",fontSize:13,margin:"0 auto"}}>
           <thead>
             <tr>
@@ -1065,6 +1065,16 @@ function Weekly({profile,data}){
   });
   const weekData=(data.weekly&&data.weekly[wk])||{};
   const fieldworkData=(data.fieldwork&&data.fieldwork[wk])||{};
+  
+  // weekData에서도 관리자 제외
+  const filteredWeekData={};
+  members.forEach(m=>{
+    if(weekData[m.id]) filteredWeekData[m.id]=weekData[m.id];
+  });
+  const filteredFieldworkData={};
+  members.forEach(m=>{
+    if(fieldworkData[m.id]) filteredFieldworkData[m.id]=fieldworkData[m.id];
+  });
 
   const [draft,setDraft]=useState("");
   const [fieldDraft,setFieldDraft]=useState("");
@@ -1140,8 +1150,8 @@ function Weekly({profile,data}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
       {members.map(m=>{
-        const rec=weekData[m.id];
-        const fwork=fieldworkData[m.id];
+        const rec=filteredWeekData[m.id];
+        const fwork=filteredFieldworkData[m.id];
         const canEdit=profile.isAdmin;
         return <div key={m.id} className="card" style={{padding:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
