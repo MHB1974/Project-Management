@@ -47,6 +47,7 @@
     --navy:#13192E;
     --navy-2:#1B2440;
     --navy-3:#222C4E;
+    --bg-main:#4A4D55;
     --line:#2E3A63;
     --text:#EAF0FF;
     --muted:#9AA8D0;
@@ -154,12 +155,21 @@ function App(){
   const [booting,setBooting]=useState(true);
   const [user,setUser]=useState(null);
   const [profile,setProfile]=useState(null);
-  const [data,setData]=useState({members:{},projects:{},weekly:{}});
+  const [data,setData]=useState({members:{},projects:{},weekly:{},fieldwork:{}});
   const [authView,setAuthView]=useState("landing");
   const [appReady,setAppReady]=useState(false);
 
   useEffect(()=>{
     if(!CONFIG_READY){ setBooting(false); return; }
+    
+    // 자동로그인 처리
+    const autoEmail=localStorage.getItem("autoLoginEmail");
+    if(autoEmail&&!firebase.auth().currentUser){
+      // 자동로그인 이메일이 있으나 로그인되지 않은 상태
+      // 비밀번호 없이는 로그인 불가능하므로, 사용자가 로그인 화면에서 비밀번호를 입력하면 email field에 자동 채움
+      // 이는 아래의 Login 컴포넌트에서 처리됩니다
+    }
+    
     const unsub=firebase.auth().onAuthStateChanged((u)=>{ setUser(u||null); setBooting(false); });
     return ()=>unsub();
   },[]);
@@ -169,7 +179,7 @@ function App(){
     const ref=firebase.database().ref(DATA_PATH);
     const cb=ref.on("value",(snap)=>{
       const v=snap.val()||{};
-      setData({members:v.members||{},projects:v.projects||{},weekly:v.weekly||{}});
+      setData({members:v.members||{},projects:v.projects||{},weekly:v.weekly||{},fieldwork:v.fieldwork||{}});
       setAppReady(true);
       // 관리자(문형범) 직급이 이사가 아니면 보정
       const isAdmin=ADMIN_EMAILS.includes((user.email||"").toLowerCase());
@@ -273,7 +283,9 @@ function AuthShell({title,children,onBack}){
   </div>;
 }
 function Login({onBack,goSignup}){
-  const [email,setEmail]=useState(""); const [pw,setPw]=useState("");
+  const [email,setEmail]=useState(()=>localStorage.getItem("autoLoginEmail")||"");
+  const [pw,setPw]=useState("");
+  const [autoLogin,setAutoLogin]=useState(!!localStorage.getItem("autoLoginEmail"));
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   const submit=async()=>{
     setErr(""); if(!email||!pw){ setErr("이메일과 비밀번호를 입력하세요."); return; }
@@ -281,6 +293,12 @@ function Login({onBack,goSignup}){
     try{
       await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
       await firebase.auth().signInWithEmailAndPassword(email.trim(),pw);
+      // 자동로그인 선택 시 localStorage에 저장
+      if(autoLogin){
+        localStorage.setItem("autoLoginEmail",email.trim());
+      }else{
+        localStorage.removeItem("autoLoginEmail");
+      }
     }catch(e){ setErr(mapAuthError(e)); setBusy(false); }
   };
   return <AuthShell title="로그인" onBack={onBack}>
@@ -289,6 +307,10 @@ function Login({onBack,goSignup}){
     <label className="lbl">비밀번호</label>
     <input className="field" style={{marginBottom:8}} value={pw} onChange={e=>setPw(e.target.value)} type="password" autoComplete="current-password"
       onKeyDown={e=>{if(e.key==="Enter")submit();}}/>
+    <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,marginBottom:12,cursor:"pointer",color:"var(--muted)"}}>
+      <input type="checkbox" checked={autoLogin} onChange={e=>setAutoLogin(e.target.checked)} style={{cursor:"pointer"}}/>
+      다음에 자동로그인
+    </label>
     {err&&<div style={{color:"var(--red)",fontSize:13,margin:"8px 0"}}>{err}</div>}
     <button className="btn" style={{width:"100%",padding:"13px",margin:"14px 0 12px"}} onClick={submit} disabled={busy}>{busy?"로그인 중…":"로그인"}</button>
     <div style={{textAlign:"center",fontSize:13,color:"var(--muted)"}}>계정이 없으신가요? <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={goSignup}>회원가입</span></div>
@@ -354,17 +376,23 @@ const MENU=[
 function Main({user,profile,data}){
   const [tab,setTab]=useState("dashboard");
   const [showProfile,setShowProfile]=useState(false);
+  const [selectedMember,setSelectedMember]=useState(null); // 사이드바 팀원 클릭 시
   const [isMobile,setIsMobile]=useState(window.innerWidth<860);
   useEffect(()=>{
     const onR=()=>setIsMobile(window.innerWidth<860);
     window.addEventListener("resize",onR); return ()=>window.removeEventListener("resize",onR);
   },[]);
+
+  const goTab=(t)=>{ setTab(t); setSelectedMember(null); };
+  const goMember=(m)=>{ setSelectedMember(m); setTab(null); };
+
   const content=(()=>{
+    if(selectedMember) return <MemberDetail member={selectedMember} profile={profile} data={data}/>;
     switch(tab){
       case "projects": return <Projects profile={profile} data={data}/>;
       case "weekly": return <Weekly profile={profile} data={data}/>;
       case "members": return <Members profile={profile} data={data}/>;
-      default: return <Dashboard profile={profile} data={data} go={setTab}/>;
+      default: return <Dashboard profile={profile} data={data} go={goTab}/>;
     }
   })();
   const logout=()=>firebase.auth().signOut();
@@ -372,7 +400,7 @@ function Main({user,profile,data}){
   const profileModal=showProfile&&<ProfileModal profile={profile} onClose={()=>setShowProfile(false)}/>;
 
   if(isMobile){
-    return <div style={{minHeight:"100vh",paddingBottom:64}}>
+    return <div style={{minHeight:"100vh",paddingBottom:64,background:"var(--bg-main)"}}>
       <header style={{position:"sticky",top:0,zIndex:20,background:"var(--navy-2)",borderBottom:"1px solid var(--line)",
         padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{fontSize:16}}>Project Management</div>
@@ -384,7 +412,7 @@ function Main({user,profile,data}){
       <main style={{padding:16}}>{content}</main>
       <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:20,background:"var(--navy-2)",borderTop:"1px solid var(--line)",display:"flex"}}>
         {MENU.map(m=>(
-          <button key={m.key} onClick={()=>setTab(m.key)} style={{flex:1,background:"none",border:"none",padding:"10px 0",
+          <button key={m.key} onClick={()=>goTab(m.key)} style={{flex:1,background:"none",border:"none",padding:"10px 0",
             color:tab===m.key?"var(--accent)":"var(--muted)",fontSize:11}}>
             <div style={{fontSize:18,lineHeight:1}}>{m.icon}</div><div style={{marginTop:3}}>{m.label}</div>
           </button>
@@ -400,19 +428,26 @@ function Main({user,profile,data}){
         <div style={{fontSize:18}}>Project Management</div>
         <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>이레테크 설계팀</div>
       </div>
-      <nav style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+      <nav style={{display:"flex",flexDirection:"column",gap:4,flex:1,overflowY:"auto"}}>
         {MENU.map(m=>{
-          const active=tab===m.key;
+          const isActive=tab===m.key&&!selectedMember;
           return <div key={m.key}>
-            <button onClick={()=>setTab(m.key)} style={{display:"flex",alignItems:"center",gap:10,textAlign:"left",width:"100%",
-              background:active?"var(--navy-3)":"transparent",color:active?"var(--text)":"var(--muted)",
+            <button onClick={()=>goTab(m.key)} style={{display:"flex",alignItems:"center",gap:10,textAlign:"left",width:"100%",
+              background:isActive?"var(--navy-3)":"transparent",color:isActive?"var(--text)":"var(--muted)",
               border:"none",borderRadius:10,padding:"11px 12px",fontSize:14}}>
-              <span style={{color:active?"var(--accent)":"var(--muted)"}}>{m.icon}</span>{m.label}
+              <span style={{color:isActive?"var(--accent)":"var(--muted)"}}>{m.icon}</span>{m.label}
             </button>
-            {m.key==="members"&&<div style={{padding:"4px 0 2px 36px"}}>
-              {sideMembers.map(sm=>(
-                <div key={sm.id} style={{fontSize:11,color:"var(--muted)",lineHeight:1.9}}>{sm.rank} {sm.name}</div>
-              ))}
+            {m.key==="members"&&<div style={{padding:"4px 0 2px 22px"}}>
+              {sideMembers.map(sm=>{
+                const smActive=selectedMember&&selectedMember.id===sm.id;
+                return <div key={sm.id} onClick={()=>goMember(sm)}
+                  style={{fontSize:11,color:smActive?"var(--accent)":"var(--muted)",lineHeight:1,
+                    padding:"5px 14px",borderRadius:6,cursor:"pointer",
+                    background:smActive?"var(--navy-3)":"transparent",
+                    transition:".12s"}}>
+                  {sm.rank} {sm.name}
+                </div>;
+              })}
             </div>}
           </div>;
         })}
@@ -424,7 +459,7 @@ function Main({user,profile,data}){
         <button className="btn ghost sm" style={{width:"100%"}} onClick={logout}>로그아웃</button>
       </div>
     </aside>
-    <main style={{flex:1,padding:"28px 32px",maxWidth:1500}}>{content}</main>
+    <main style={{flex:1,padding:"28px 32px",maxWidth:1500,background:"var(--bg-main)"}}>{content}</main>
     {profileModal}
   </div>;
 }
@@ -480,6 +515,82 @@ function timeProgress(p){
   const pct=Math.round((now-range.start)/span*100);
   return Math.max(0,Math.min(100,pct));
 }
+
+/* =====================================================
+   MEMBER DETAIL (팀원 클릭 시 프로젝트 + 주간업무)
+===================================================== */
+function MemberDetail({member,profile,data}){
+  const projects=Object.entries(data.projects||{}).map(([id,p])=>({id,...p}));
+  const assignedProjects=projects.filter(p=>(p.assignedMembers||[]).includes(member.id));
+  const allMembers=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+
+  const now=new Date();
+  const thisWk=weekKey(now);
+  const thisLabel=weekLabel(now);
+  const lastDate=new Date(now); lastDate.setDate(lastDate.getDate()-7);
+  const lastWk=weekKey(lastDate);
+  const lastLabel=weekLabel(lastDate);
+  const thisData=(data.weekly&&data.weekly[thisWk]&&data.weekly[thisWk][member.id])||null;
+  const lastData=(data.weekly&&data.weekly[lastWk]&&data.weekly[lastWk][member.id])||null;
+  const thisFieldwork=(data.fieldwork&&data.fieldwork[thisWk]&&data.fieldwork[thisWk][member.id])||null;
+  const lastFieldwork=(data.fieldwork&&data.fieldwork[lastWk]&&data.fieldwork[lastWk][member.id])||null;
+
+  return <div>
+    <PageTitle title={member.rank+" "+member.name} sub={member.email}/>
+
+    <div style={{fontSize:15,marginBottom:12}}>담당 프로젝트</div>
+    {assignedProjects.length===0
+      ? <div className="card" style={{padding:"30px 20px",textAlign:"center",color:"var(--muted)",marginBottom:22}}>배정된 프로젝트가 없습니다.</div>
+      : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:22}}>
+          {assignedProjects.map(p=>{
+            const prog=timeProgress(p);
+            const otherMembers=(p.assignedMembers||[]).filter(mid=>mid!==member.id)
+              .map(mid=>allMembers.find(m=>m.id===mid)).filter(Boolean);
+            return <div key={p.id} className="card" style={{padding:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{fontSize:15}}>{p.name}</div>
+                <span style={{color:"var(--accent)",fontSize:16}}>{prog}%</span>
+              </div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>{p.client||"발주처 미정"} · {MONTH_NAMES[p.startMonth-1]} ~ {MONTH_NAMES[p.endMonth-1]}</div>
+              <div style={{height:6,background:"var(--navy-3)",borderRadius:4,overflow:"hidden",marginBottom:8}}>
+                <div style={{height:"100%",width:prog+"%",background:"linear-gradient(90deg,var(--accent),var(--accent-2))"}}/>
+              </div>
+              {otherMembers.length>0&&<div style={{fontSize:11,color:"var(--muted)"}}>
+                함께 배정: {otherMembers.map(m=>m.rank+" "+m.name).join(", ")}
+              </div>}
+            </div>;
+          })}
+        </div>
+    }
+
+    <div style={{fontSize:15,marginBottom:12}}>주간업무</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+      <div className="card" style={{padding:16}}>
+        <div style={{fontSize:13,color:"var(--accent-2)",marginBottom:8}}>이번 주</div>
+        <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>{thisLabel}</div>
+        <div style={{fontSize:13,color:thisData&&thisData.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.6,minHeight:30,marginBottom:10}}>
+          {thisData&&thisData.text?thisData.text:"작성된 내용이 없습니다."}
+        </div>
+        <div style={{fontSize:11,color:"var(--accent-2)",marginBottom:4}}>외근/출장</div>
+        <div style={{fontSize:11,color:thisFieldwork&&thisFieldwork.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.4}}>
+          {thisFieldwork&&thisFieldwork.text?thisFieldwork.text:"없음"}
+        </div>
+      </div>
+      <div className="card" style={{padding:16}}>
+        <div style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>지난 주</div>
+        <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>{lastLabel}</div>
+        <div style={{fontSize:13,color:lastData&&lastData.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.6,minHeight:30,marginBottom:10}}>
+          {lastData&&lastData.text?lastData.text:"작성된 내용이 없습니다."}
+        </div>
+        <div style={{fontSize:11,color:"var(--accent-2)",marginBottom:4}}>외근/출장</div>
+        <div style={{fontSize:11,color:lastFieldwork&&lastFieldwork.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.4}}>
+          {lastFieldwork&&lastFieldwork.text?lastFieldwork.text:"없음"}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
 function Dashboard({profile,data,go}){
   const projects=Object.entries(data.projects||{}).map(([id,p])=>({id,...p}));
   const members=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
@@ -887,24 +998,39 @@ function Weekly({profile,data}){
   const base=new Date(); base.setDate(base.getDate()+offset*7);
   const wk=weekKey(base);
   const label=weekLabel(base);
-  // 관리자는 주간업무 목록에서 제외
   const allMembers=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
   const members=allMembers.filter(m=>!ADMIN_EMAILS.includes((m.email||"").toLowerCase()));
   const weekData=(data.weekly&&data.weekly[wk])||{};
+  const fieldworkData=(data.fieldwork&&data.fieldwork[wk])||{};
 
   const [draft,setDraft]=useState("");
+  const [fieldDraft,setFieldDraft]=useState("");
   const composing=useRef(false);
   const myKey=profile.uid;
-  useEffect(()=>{ setDraft((weekData[myKey]&&weekData[myKey].text)||""); },[wk]);
+  useEffect(()=>{ 
+    setDraft((weekData[myKey]&&weekData[myKey].text)||"");
+    setFieldDraft((fieldworkData[myKey]&&fieldworkData[myKey].text)||"");
+  },[wk]);
 
   const save=()=>{
     firebase.database().ref(DATA_PATH+"/weekly/"+wk+"/"+myKey).set({
       text:draft, name:profile.name, rank:profile.rank, updatedAt:Date.now()
     });
   };
+  const saveFieldwork=()=>{
+    firebase.database().ref(DATA_PATH+"/fieldwork/"+wk+"/"+myKey).set({
+      text:fieldDraft, name:profile.name, rank:profile.rank, updatedAt:Date.now()
+    });
+  };
   const editText=(memberId,text)=>{
     const m=members.find(x=>x.id===memberId);
     firebase.database().ref(DATA_PATH+"/weekly/"+wk+"/"+memberId).set({
+      text, name:m?m.name:"", rank:m?m.rank:"", updatedAt:Date.now()
+    });
+  };
+  const editFieldwork=(memberId,text)=>{
+    const m=members.find(x=>x.id===memberId);
+    firebase.database().ref(DATA_PATH+"/fieldwork/"+wk+"/"+memberId).set({
       text, name:m?m.name:"", rank:m?m.rank:"", updatedAt:Date.now()
     });
   };
@@ -927,9 +1053,19 @@ function Weekly({profile,data}){
         onCompositionEnd={(e)=>{composing.current=false;setDraft(e.target.value);}}
         onChange={(e)=>{ setDraft(e.target.value); }}
         style={{resize:"vertical",lineHeight:1.6}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,marginBottom:14}}>
         <span style={{fontSize:12,color:"var(--muted)"}}>{draft.length} / 300자</span>
         <button className="btn" onClick={save}>저장</button>
+      </div>
+
+      <div style={{fontSize:12,marginBottom:8,color:"var(--accent-2)"}}>외근/출장 일정</div>
+      <textarea className="field" rows={2} maxLength={150} value={fieldDraft}
+        placeholder="외근 또는 출장 일정을 입력하세요"
+        onChange={(e)=>setFieldDraft(e.target.value)}
+        style={{resize:"vertical",lineHeight:1.5,fontSize:12,marginBottom:8}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:11,color:"var(--muted)"}}>{fieldDraft.length} / 150자</span>
+        <button className="btn sm" onClick={saveFieldwork}>저장</button>
       </div>
     </div>}
 
@@ -937,17 +1073,26 @@ function Weekly({profile,data}){
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
       {members.map(m=>{
         const rec=weekData[m.id];
+        const fwork=fieldworkData[m.id];
         const canEdit=profile.isAdmin;
-        return <div key={m.id} className="card" style={{padding:16}}>
+        return <div key={m.id} className="card" style={{padding:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <span style={{fontSize:14}}>{m.rank} {m.name}</span>
+            <span style={{fontSize:13}}>{m.rank} {m.name}</span>
             {m.id===profile.uid&&<span className="tag" style={{color:"var(--accent)"}}>나</span>}
           </div>
           {canEdit && m.id!==profile.uid
-            ? <textarea className="field" rows={3} maxLength={300} value={(rec&&rec.text)||""}
-                onChange={e=>editText(m.id,e.target.value)} style={{resize:"vertical",lineHeight:1.6,fontSize:13}}/>
-            : <div style={{fontSize:13,color:rec&&rec.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.6,minHeight:40}}>
-                {rec&&rec.text?rec.text:"작성된 내용이 없습니다."}
+            ? <textarea className="field" rows={2} maxLength={300} value={(rec&&rec.text)||""}
+                onChange={e=>editText(m.id,e.target.value)} style={{resize:"vertical",lineHeight:1.5,fontSize:11,marginBottom:6}}/>
+            : <div style={{fontSize:11,color:rec&&rec.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.5,minHeight:20,marginBottom:6}}>
+                {rec&&rec.text?rec.text:"내용 없음"}
+              </div>}
+          
+          <div style={{fontSize:11,color:"var(--accent-2)",marginBottom:4}}>외근/출장</div>
+          {canEdit && m.id!==profile.uid
+            ? <textarea className="field" rows={1} maxLength={150} value={(fwork&&fwork.text)||""}
+                onChange={e=>editFieldwork(m.id,e.target.value)} style={{resize:"vertical",lineHeight:1.4,fontSize:10}}/>
+            : <div style={{fontSize:10,color:fwork&&fwork.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.4,minHeight:14}}>
+                {fwork&&fwork.text?fwork.text:"없음"}
               </div>}
         </div>;
       })}
