@@ -88,6 +88,10 @@
   .card{background:var(--navy-2);border:1px solid var(--line);border-radius:14px;}
   .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--navy-3);color:var(--muted);}
   label.lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px;}
+  /* main 영역 텍스트 라임 그린 */
+  main, main * { color: #7FE249 !important; }
+  main .tag { color: var(--accent) !important; }
+  main [style*="color: var(--muted)"] { color: #7FE249 !important; }
   @keyframes spin{to{transform:rotate(360deg);}}
   .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
 </style>
@@ -409,7 +413,7 @@ function Main({user,profile,data}){
           <button className="btn ghost sm" onClick={logout}>로그아웃</button>
         </div>
       </header>
-      <main style={{padding:16}}>{content}</main>
+      <main style={{padding:16,color:"#FFD4A8"}}>{content}</main>
       <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:20,background:"var(--navy-2)",borderTop:"1px solid var(--line)",display:"flex"}}>
         {MENU.map(m=>(
           <button key={m.key} onClick={()=>goTab(m.key)} style={{flex:1,background:"none",border:"none",padding:"10px 0",
@@ -459,7 +463,7 @@ function Main({user,profile,data}){
         <button className="btn ghost sm" style={{width:"100%"}} onClick={logout}>로그아웃</button>
       </div>
     </aside>
-    <main style={{flex:1,padding:"28px 32px",maxWidth:1500,background:"var(--bg-main)"}}>{content}</main>
+    <main style={{flex:1,padding:"28px 32px",maxWidth:1500,background:"var(--bg-main)",color:"#FFD4A8"}}>{content}</main>
     {profileModal}
   </div>;
 }
@@ -1047,7 +1051,7 @@ function Weekly({profile,data}){
     {/* 관리자가 아닌 팀원만 본인 작성란 표시 */}
     {!profile.isAdmin&&<div className="card" style={{padding:18,marginBottom:18}}>
       <div style={{fontSize:14,marginBottom:10}}>{profile.rank} {profile.name} <span className="tag">내 업무</span></div>
-      <textarea className="field" rows={4} maxLength={300} value={draft}
+      <textarea className="field" rows={8} maxLength={300} value={draft}
         placeholder="이번 주 업무 내용을 자유롭게 작성하세요 (200자 내외)"
         onCompositionStart={()=>{composing.current=true;}}
         onCompositionEnd={(e)=>{composing.current=false;setDraft(e.target.value);}}
@@ -1081,7 +1085,7 @@ function Weekly({profile,data}){
             {m.id===profile.uid&&<span className="tag" style={{color:"var(--accent)"}}>나</span>}
           </div>
           {canEdit && m.id!==profile.uid
-            ? <textarea className="field" rows={2} maxLength={300} value={(rec&&rec.text)||""}
+            ? <textarea className="field" rows={4} maxLength={300} value={(rec&&rec.text)||""}
                 onChange={e=>editText(m.id,e.target.value)} style={{resize:"vertical",lineHeight:1.5,fontSize:11,marginBottom:6}}/>
             : <div style={{fontSize:11,color:rec&&rec.text?"var(--text)":"var(--muted)",whiteSpace:"pre-wrap",lineHeight:1.5,minHeight:20,marginBottom:6}}>
                 {rec&&rec.text?rec.text:"내용 없음"}
