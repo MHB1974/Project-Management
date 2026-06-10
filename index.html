@@ -997,7 +997,14 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
    WEEKLY
 ===================================================== */
 function Weekly({profile,data}){
+  // 관리자는 주간업무 페이지 접근 불가
+  if(profile.isAdmin) return <div style={{padding:"50px 24px",textAlign:"center",color:"var(--muted)"}}>
+    <div style={{fontSize:16,marginBottom:10}}>주간업무</div>
+    <div>관리자는 주간업무 기능을 사용할 수 없습니다.</div>
+  </div>;
+
   const [offset,setOffset]=useState(0);
+  const [showAll,setShowAll]=useState(false);
   const base=new Date(); base.setDate(base.getDate()+offset*7);
   const wk=weekKey(base);
   const label=weekLabel(base);
@@ -1019,6 +1026,7 @@ function Weekly({profile,data}){
     firebase.database().ref(DATA_PATH+"/weekly/"+wk+"/"+myKey).set({
       text:draft, name:profile.name, rank:profile.rank, updatedAt:Date.now()
     });
+    setShowAll(true); // 저장 후 전체보기로 전환
   };
   const saveFieldwork=()=>{
     firebase.database().ref(DATA_PATH+"/fieldwork/"+wk+"/"+myKey).set({
@@ -1048,7 +1056,7 @@ function Weekly({profile,data}){
     <div style={{fontSize:14,color:"var(--accent-2)",marginBottom:18}}>{label}</div>
 
     {/* 관리자가 아닌 팀원만 본인 작성란 표시 */}
-    {!profile.isAdmin&&<div className="card" style={{padding:18,marginBottom:18}}>
+    {!showAll&&<div className="card" style={{padding:18,marginBottom:18,width:"50%"}}>
       <div style={{fontSize:14,marginBottom:10}}>{profile.rank} {profile.name} <span className="tag">내 업무</span></div>
       <textarea className="field" rows={8} maxLength={300} value={draft}
         placeholder="이번 주 업무 내용을 자유롭게 작성하세요 (200자 내외)"
@@ -1072,8 +1080,12 @@ function Weekly({profile,data}){
       </div>
     </div>}
 
-    <div style={{fontSize:14,color:"var(--muted)",margin:"0 0 10px 2px"}}>팀 전체 주간업무</div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
+    {showAll&&<div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div style={{fontSize:14,color:"var(--muted)"}}>팀 전체 주간업무</div>
+        <button className="btn ghost sm" onClick={()=>setShowAll(false)}>◂ 돌아가기</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
       {members.map(m=>{
         const rec=weekData[m.id];
         const fwork=fieldworkData[m.id];
@@ -1099,7 +1111,8 @@ function Weekly({profile,data}){
               </div>}
         </div>;
       })}
-    </div>
+      </div>
+    </div>}
   </div>;
 }
 
