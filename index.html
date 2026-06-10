@@ -740,12 +740,16 @@ function Projects({profile,data}){
 }
 
 function HeaderModal({project,members,onSave,onClose}){
+  // 새 프로젝트: 팀원 목록의 처음 1-2명 자동 선택
+  const defaultAssigned=project?project.assignedMembers:(
+    members.length===0?[]:members.slice(0,Math.min(2,members.length)).map(m=>m.id)
+  );
   const [f,setF]=useState({
     id:project?.id||"", name:project?.name||"", client:project?.client||"",
     startMonth:project?.startMonth||7, endMonth:project?.endMonth||12,
     status:project?.status||"대기",
     note:project?.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
-    assignedMembers:project?.assignedMembers||[]
+    assignedMembers:defaultAssigned
   });
   const set=(k,v)=>setF(s=>({...s,[k]:v}));
   const toggleMember=(mid)=>{
