@@ -405,7 +405,8 @@ function Main({user,profile,data}){
     }
   })();
   const logout=()=>firebase.auth().signOut();
-  const sideMembers=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const allSideMembers=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const sideMembers=allSideMembers.filter(m=>!ADMIN_EMAILS.includes((m.email||"").toLowerCase()));
   const profileModal=showProfile&&<ProfileModal profile={profile} onClose={()=>setShowProfile(false)}/>;
 
   if(isMobile){
@@ -1058,7 +1059,10 @@ function Weekly({profile,data}){
   const wk=weekKey(base);
   const label=weekLabel(base);
   const allMembers=Object.entries(data.members||{}).map(([id,m])=>({id,...m})).sort((a,b)=>(a.order||0)-(b.order||0));
-  const members=allMembers.filter(m=>!ADMIN_EMAILS.includes((m.email||"").toLowerCase()));
+  const members=allMembers.filter(m=>{
+    const email=(m.email||"").toLowerCase();
+    return !ADMIN_EMAILS.includes(email);
+  });
   const weekData=(data.weekly&&data.weekly[wk])||{};
   const fieldworkData=(data.fieldwork&&data.fieldwork[wk])||{};
 
