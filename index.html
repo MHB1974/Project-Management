@@ -4,6 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Project Management (이레테크)</title>
+<meta name="theme-color" content="#13192E" />
+<meta name="description" content="설계팀 프로젝트 관리 시스템" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23FF7A2E' width='192' height='192'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='120' font-weight='bold' fill='%231a0d00' font-family='sans-serif'%3E▦%3C/text%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23FF7A2E' width='192' height='192'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='120' font-weight='bold' fill='%231a0d00' font-family='sans-serif'%3E▦%3C/text%3E%3C/svg%3E" />
 
 <!-- React + Babel -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -120,6 +125,7 @@ const DEFAULT_TASKS = [
 ];
 
 const MONTH_NAMES = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const PROJECT_STATUSES = ["대기","보류","진행","완료"];
 
 /* ---------------- helpers ---------------- */
 function pad(n){return n<10?"0"+n:""+n;}
@@ -612,11 +618,12 @@ function Dashboard({profile,data,go}){
     </div>;
   }
   const avg=Math.round(projects.reduce((a,p)=>a+timeProgress(p),0)/projects.length);
+  const statusCount=PROJECT_STATUSES.reduce((acc,s)=>({...acc,[s]:(projects.filter(p=>p.status===s)||[]).length}),{});
   const stat=(label,val,sub)=>(
-    <div className="card" style={{padding:18,flex:"1 1 150px"}}>
-      <div style={{color:"var(--muted)",fontSize:12}}>{label}</div>
-      <div style={{fontSize:28,marginTop:6}}>{val}</div>
-      {sub&&<div style={{color:"var(--muted)",fontSize:12,marginTop:2}}>{sub}</div>}
+    <div className="card" style={{padding:9,flex:"1 1 150px"}}>
+      <div style={{color:"var(--muted)",fontSize:11}}>{label}</div>
+      <div style={{fontSize:18,marginTop:3}}>{val}</div>
+      {sub&&<div style={{color:"var(--muted)",fontSize:11,marginTop:2}}>{sub}</div>}
     </div>
   );
   return <div>
@@ -626,6 +633,15 @@ function Dashboard({profile,data,go}){
       {stat("평균 공정율",avg+"%")}
       {stat("등록 팀원",members.length+"명")}
     </div>
+    <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:22}}>
+      {PROJECT_STATUSES.map(s=>{
+        const color=s==="완료"?"var(--green)":s==="진행"?"var(--accent)":s==="보류"?"var(--yellow)":"var(--muted)";
+        return <div key={s} className="card" style={{padding:10,flex:"1 1 150px"}}>
+          <div style={{color:"var(--muted)",fontSize:11}}>{s}</div>
+          <div style={{fontSize:18,marginTop:3}}>{statusCount[s]||0}건</div>
+        </div>;
+      })}
+    </div>
     <div className="card" style={{padding:18}}>
       <div style={{fontSize:15,marginBottom:4}}>프로젝트 공정율</div>
       <div style={{fontSize:12,color:"var(--muted)",marginBottom:14}}>전체 일정 대비 현재 날짜 기준</div>
@@ -634,7 +650,11 @@ function Dashboard({profile,data,go}){
         const assigned=(p.assignedMembers||[]).map(mid=>members.find(m=>m.id===mid)).filter(Boolean);
         return <div key={p.id} style={{padding:"12px 0",borderBottom:"1px solid var(--line)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <span style={{fontSize:14}}>{p.name} <span className="tag">{p.client||"발주처 미정"}</span></span>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:14}}>{p.name}</span>
+              <span className="tag">{p.client||"발주처 미정"}</span>
+              <span className="tag" style={{background:"var(--navy-3)",color:p.status==="완료"?"var(--green)":p.status==="진행"?"var(--accent)":p.status==="보류"?"var(--yellow)":"var(--muted)"}}>{p.status||"대기"}</span>
+            </div>
             <span style={{color:"var(--accent)",fontSize:16}}>{prog}%</span>
           </div>
           <div style={{height:8,background:"var(--navy-3)",borderRadius:5,overflow:"hidden",marginBottom:6}}>
@@ -670,13 +690,14 @@ function Projects({profile,data}){
     if(form.id){
       await firebase.database().ref(DATA_PATH+"/projects/"+form.id).update({
         name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,
-        note:form.note,assignedMembers:form.assignedMembers||[]
+        note:form.note,status:form.status||"대기",assignedMembers:form.assignedMembers||[]
       });
     }else{
       const id=uid();
       await firebase.database().ref(DATA_PATH+"/projects/"+id).set({
         name:form.name,client:form.client,startMonth:form.startMonth,endMonth:form.endMonth,
         note:form.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
+        status:form.status||"대기",
         createdAt:Date.now(),
         tasks:DEFAULT_TASKS.map(n=>({id:uid(),name:n})),
         schedule:{},
@@ -721,6 +742,7 @@ function HeaderModal({project,members,onSave,onClose}){
   const [f,setF]=useState({
     id:project?.id||"", name:project?.name||"", client:project?.client||"",
     startMonth:project?.startMonth||7, endMonth:project?.endMonth||12,
+    status:project?.status||"대기",
     note:project?.note||"상기 공정은 현장상황에 따라 변경될 수 있습니다.",
     assignedMembers:project?.assignedMembers||[]
   });
@@ -735,6 +757,10 @@ function HeaderModal({project,members,onSave,onClose}){
     <input className="field" style={{marginBottom:12}} value={f.name} onChange={e=>set("name",e.target.value)}/>
     <label className="lbl">발주처</label>
     <input className="field" style={{marginBottom:12}} value={f.client} onChange={e=>set("client",e.target.value)}/>
+    <label className="lbl">프로젝트 상태</label>
+    <select className="field" style={{marginBottom:12}} value={f.status} onChange={e=>set("status",e.target.value)}>
+      {PROJECT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+    </select>
     <div style={{display:"flex",gap:12}}>
       <div style={{flex:1}}>
         <label className="lbl">시작 월</label>
@@ -784,6 +810,7 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
   const [draft,setDraft]=useState(project.schedule||{});
   const [dirty,setDirty]=useState(false);
   const [saving,setSaving]=useState(false);
+  const [draggedTask,setDraggedTask]=useState(null);
   const remoteJSON=useRef(JSON.stringify(project.schedule||{}));
   // 외부(다른 사용자) 변경이 들어왔고, 내가 편집 중이 아닐 때만 draft 동기화
   useEffect(()=>{
@@ -869,6 +896,14 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
     if(!name||!name.trim()) return;
     ref.child("tasks").set(tasks.map(t=>t.id===taskId?{...t,name:name.trim()}:t));
   };
+  const moveTaskByDrag=(fromIdx,toIdx)=>{
+    if(!profile.isAdmin||fromIdx===toIdx) return;
+    const next=[...tasks];
+    const task=next[fromIdx];
+    next.splice(fromIdx,1);
+    next.splice(toIdx,0,task);
+    ref.child("tasks").set(next);
+  };
   const setNote=(v)=>ref.child("note").set(v);
 
   const C=34;          // 셀 너비 (확대)
@@ -951,11 +986,25 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
             </tr>
           </thead>
           <tbody>
-            {tasks.map(t=>(
-              <tr key={t.id}>
+            {tasks.map((t,idx)=>(
+              <tr key={t.id}
+                draggable={profile.isAdmin}
+                onDragStart={()=>setDraggedTask(idx)}
+                onDragOver={(e)=>e.preventDefault()}
+                onDragEnter={(e)=>{if(draggedTask!==null&&draggedTask!==idx) e.currentTarget.style.borderTop="3px solid var(--accent)";}}
+                onDragLeave={(e)=>{e.currentTarget.style.borderTop="";}}
+                onDrop={(e)=>{
+                  e.preventDefault();
+                  if(draggedTask!==null) moveTaskByDrag(draggedTask,idx);
+                  setDraggedTask(null);
+                  e.currentTarget.style.borderTop="";
+                }}
+                style={{cursor:profile.isAdmin?"grab":"default",opacity:draggedTask===idx?0.5:1}}>
                 <td style={{border:cellBorder,padding:"7px 12px",whiteSpace:"nowrap",background:"var(--navy-2)",fontSize:13}}>
                   <span onClick={()=>renameTask(t.id,t.name)} style={{cursor:profile.isAdmin?"pointer":"default"}}>{t.name}</span>
-                  {profile.isAdmin&&<button onClick={()=>delTask(t.id)} style={{marginLeft:8,background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:14}}>×</button>}
+                  {profile.isAdmin&&<>
+                    <button onClick={()=>delTask(t.id)} style={{marginLeft:8,background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:14}}>×</button>
+                  </>}
                 </td>
                 {cols.map((c,i)=>{
                   const on=getCell(t.id,c.m,c.wk);
