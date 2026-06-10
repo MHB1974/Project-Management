@@ -47,7 +47,7 @@
     --navy:#13192E;
     --navy-2:#1B2440;
     --navy-3:#222C4E;
-    --bg-main:#4A4D55;
+    --bg-main:#808288;
     --line:#2E3A63;
     --text:#EAF0FF;
     --muted:#9AA8D0;
@@ -88,10 +88,9 @@
   .card{background:var(--navy-2);border:1px solid var(--line);border-radius:14px;}
   .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--navy-3);color:var(--muted);}
   label.lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px;}
-  /* main 영역 텍스트 라임 그린 */
-  main, main * { color: #7FE249 !important; }
+  /* main 영역 텍스트 연한 주황색 */
+  main, main * { color: #FFFFFF !important; }
   main .tag { color: var(--accent) !important; }
-  main [style*="color: var(--muted)"] { color: #7FE249 !important; }
   @keyframes spin{to{transform:rotate(360deg);}}
   .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
 </style>
@@ -413,7 +412,7 @@ function Main({user,profile,data}){
           <button className="btn ghost sm" onClick={logout}>로그아웃</button>
         </div>
       </header>
-      <main style={{padding:16,color:"#FFD4A8"}}>{content}</main>
+      <main style={{padding:16,color:"#FFFFFF"}}>{content}</main>
       <nav style={{position:"fixed",bottom:0,left:0,right:0,zIndex:20,background:"var(--navy-2)",borderTop:"1px solid var(--line)",display:"flex"}}>
         {MENU.map(m=>(
           <button key={m.key} onClick={()=>goTab(m.key)} style={{flex:1,background:"none",border:"none",padding:"10px 0",
@@ -463,7 +462,7 @@ function Main({user,profile,data}){
         <button className="btn ghost sm" style={{width:"100%"}} onClick={logout}>로그아웃</button>
       </div>
     </aside>
-    <main style={{flex:1,padding:"28px 32px",maxWidth:1500,background:"var(--bg-main)",color:"#FFD4A8"}}>{content}</main>
+    <main style={{flex:1,padding:"28px 32px",maxWidth:1500,background:"var(--bg-main)",color:"#FFFFFF"}}>{content}</main>
     {profileModal}
   </div>;
 }
