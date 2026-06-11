@@ -949,6 +949,7 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
   const [dirty,setDirty]=useState(false);
   const [saving,setSaving]=useState(false);
   const [draggedTask,setDraggedTask]=useState(null);
+  const [winWidth,setWinWidth]=useState(window.innerWidth);
   const remoteJSON=useRef(JSON.stringify(project.schedule||{}));
   // 외부(다른 사용자) 변경이 들어왔고, 내가 편집 중이 아닐 때만 draft 동기화
   useEffect(()=>{
@@ -958,6 +959,12 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
       setDraft(project.schedule||{});
     }
   });
+  // 브라우저 창 크기 변화 감지
+  useEffect(()=>{
+    const onResize=()=>setWinWidth(window.innerWidth);
+    window.addEventListener("resize",onResize);
+    return ()=>window.removeEventListener("resize",onResize);
+  },[]);
   const schedule=draft;
 
   // 월별 그룹 (colSpan 계산)
@@ -1044,7 +1051,8 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
   };
   const setNote=(v)=>ref.child("note").set(v);
 
-  const C=34;          // 셀 너비 (확대)
+  // 셀 너비를 브라우저 크기에 따라 동적으로 계산 (반응형)
+  const C=Math.max(20,Math.min(34,Math.floor(winWidth/45)));
   const CH=24;         // 셀 높이 (30% 축소)
   const labelW=190;    // 공정 라벨 폭 (확대)
   const cellBorder="1px solid var(--line)";
