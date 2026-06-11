@@ -1052,9 +1052,10 @@ function ScheduleTable({project,profile,members,onEditHeader,onDelete}){
   const setNote=(v)=>ref.child("note").set(v);
 
   // 셀 너비를 브라우저 크기에 따라 동적으로 계산 (반응형)
-  const C=Math.max(20,Math.min(34,Math.floor(winWidth/45)));
+  const C=Math.max(18,Math.min(34,Math.floor(winWidth/42)));
   const CH=24;         // 셀 높이 (30% 축소)
-  const labelW=190;    // 공정 라벨 폭 (확대)
+  // 레이블 너비도 브라우저 크기에 따라 동적으로 계산 (반응형)
+  const labelW=Math.max(130,Math.min(190,Math.floor(winWidth/7)));  // 130~190px 범위
   const cellBorder="1px solid var(--line)";
   const barBg="linear-gradient(90deg,var(--accent),var(--accent-2))"; // 일정 바 색상(원복)
   // draft 기준 진행률
