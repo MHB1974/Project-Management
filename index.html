@@ -49,53 +49,186 @@
 
 <style>
   :root{
+    /* ═════════════════════════════════════════════════════════════
+       CSS 색상 및 스타일 변수 모음
+       이 변수들을 수정하면 전체 앱의 색상/스타일이 변합니다
+       ═════════════════════════════════════════════════════════════ */
+
+    /* === 네이비 계열 (배경 색상) ===
+       전체 앱의 어두운 톤을 담당하는 배경 색상들 */
+    
     --navy:#13192E;
+    /* 가장 어두운 네이비색
+       사용처: 좌측 사이드바 배경, 메인 배경
+       밝게하기: #2a4a8c / 어둡게하기: #0d0f20 */
+    
     --navy-2:#1B2440;
+    /* 중간 톤 네이비색
+       사용처: 카드 배경, 테이블 셀, 버튼 호버
+       전체적으로 밝으면 카드가 눈에 띔 / 어두우면 통일감 있음 */
+    
     --navy-3:#222C4E;
+    /* 밝은 네이비색
+       사용처: 프로젝트 카드 헤더, 태그 배경
+       강조되는 부분이므로 눈에 띄어야 함 */
+
+    /* === 메인 작업 영역 배경 ===
+       프로젝트, 주간업무, 대시보드 등의 큰 배경 */
+    
     --bg-main:#808288;
+    /* 회색 - 메인 작업 영역 전체 배경
+       밝게하기: #a0a8b8 (더 밝고 부드러움)
+       어둡게하기: #606468 (더 진하고 진지함) */
+
+    /* === 텍스트 & 라인 색상 ===
+       텍스트 가독성과 구분선 관련 */
+    
     --line:#2E3A63;
+    /* 테두리, 구분선 색상
+       카드와 셀의 경계를 만드는 색
+       밝게하기: #4a5a8f / 어둡게하기: #1a2250 */
+    
     --text:#EAF0FF;
+    /* 주요 텍스트 색상 (밝은 파란색)
+       제목, 내용 등 중요한 텍스트
+       변경 잘 안 함 */
+    
     --muted:#9AA8D0;
+    /* 보조 텍스트 색상 (연한 보라색)
+       설명, 라벨, 안내 메시지
+       너무 밝으면 구분 안됨 / 너무 어두우면 읽기 힘듦 */
+
+    /* === 강조 색상 (주황색) ===
+       버튼, 강조 부분, 중요한 요소 */
+    
     --accent:#FF7A2E;
+    /* 주 강조색 (주황색)
+       사용처: 저장 버튼, 강조 텍스트, 진행 중 표시
+       변경하기: #FF6B35 (더 빨강) / #FFB043 (더 노랑) */
+    
     --accent-2:#FFB070;
+    /* 보조 강조색 (밝은 주황색)
+       사용처: 버튼 호버, 보조 강조
+       --accent와 밝기 차이가 있어야 함 */
+
+    /* === 상태 색상 ===
+       완료/오류/경고 등 상태를 나타내는 색 */
+    
     --green:#3FD08C;
+    /* 녹색 - 완료 상태 표시
+       사용처: 프로젝트 "완료" 상태, 성공 메시지
+       변경하기: #2ecc71 (더 밝음) / #27ae60 (더 진함) */
+    
     --red:#FF6B6B;
+    /* 빨간색 - 삭제/오류 표시
+       사용처: 방출 버튼, 오류 메시지, 위험한 작업
+       변경하기: #e74c3c (더 진함) / #ff5252 (더 밝음) */
+    
     --yellow:#FFD15C;
+    /* 노란색 - 경고/변경 중 표시
+       사용처: "저장되지 않은 변경" 표시, 주의 메시지
+       변경하기: #ffc107 (더 순함) / #f39c12 (더 진함) */
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  
+  /* === 전체 페이지 스타일 === */
   body{
+    /* 전체 배경색, 폰트, 기본 스타일 설정 */
     font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;
-    font-weight:600;
-    background:var(--navy);
-    color:var(--text);
-    -webkit-font-smoothing:antialiased;
+    font-weight:600;                    /* 글자 굵기 (600=약간 굵음) */
+    background:var(--navy);             /* 전체 배경: 어두운 네이비 */
+    color:var(--text);                  /* 기본 텍스트 색상: 밝은 파란색 */
+    -webkit-font-smoothing:antialiased; /* 글자 렌더링 부드럽게 */
   }
   button{font-family:inherit;font-weight:600;cursor:pointer;}
   input,select,textarea{font-family:inherit;font-weight:600;}
-  ::-webkit-scrollbar{height:10px;width:10px;}
-  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
-  ::-webkit-scrollbar-track{background:transparent;}
+  
+  /* === 스크롤바 스타일 === */
+  ::-webkit-scrollbar{height:10px;width:10px;}                /* 스크롤바 크기 */
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}  /* 스크롤바 색상 */
+  ::-webkit-scrollbar-track{background:transparent;}          /* 스크롤바 배경 */
+  
+  /* === 버튼 스타일 (.btn) ===
+     기본 버튼: 주황색 강조, 저장/실행 등 주요 버튼 */
   .btn{
-    border:none;border-radius:10px;padding:10px 16px;font-size:14px;
-    background:var(--accent);color:#1a0d00;transition:.15s;
+    border:none;
+    border-radius:10px;                 /* 모서리 둥글기 (크기 키우면 더 둥글어짐) */
+    padding:10px 16px;                  /* 버튼 내부 여백 (세로10 가로16) */
+    font-size:14px;                     /* 버튼 텍스트 크기 (작게:12px / 크게:16px) */
+    background:var(--accent);           /* 버튼 배경: 주황색 */
+    color:#1a0d00;                      /* 버튼 텍스트: 어두운 갈색 */
+    transition:.15s;                    /* 호버 시 부드러운 전환 효과 */
   }
-  .btn:hover{filter:brightness(1.08);}
-  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
-  .btn.ghost:hover{background:var(--navy-3);}
-  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px;}
-  .btn.danger{background:var(--red);color:#2a0000;}
+  .btn:hover{filter:brightness(1.08);}  /* 마우스 올리면 1.08배 밝아짐 */
+  
+  /* 투명 버튼 (.btn.ghost) - 텍스트 위주, 테두리만 있음 */
+  .btn.ghost{
+    background:transparent;             /* 배경: 없음 */
+    color:var(--text);                  /* 텍스트: 밝은 색 */
+    border:1px solid var(--line);       /* 테두리: 얇은 선 */
+  }
+  .btn.ghost:hover{background:var(--navy-3);}  /* 호버 시 배경색 표시 */
+  
+  /* 작은 버튼 (.btn.sm) */
+  .btn.sm{
+    padding:6px 11px;                   /* 기본 버튼보다 작음 */
+    font-size:12px;                     /* 텍스트도 작음 */
+    border-radius:8px;                  /* 약간 덜 둥글게 */
+  }
+  
+  /* 위험 버튼 (.btn.danger) - 삭제 등 */
+  .btn.danger{
+    background:var(--red);              /* 배경: 빨간색 */
+    color:#2a0000;                      /* 텍스트: 어두운 빨강 */
+  }
+  
+  /* === 입력창 스타일 (.field) ===
+     텍스트 입력, 선택창, 텍스트에어리어 등 */
   .field{
-    width:100%;background:var(--navy);border:1px solid var(--line);
-    color:var(--text);border-radius:10px;padding:11px 13px;font-size:14px;outline:none;
+    width:100%;                         /* 전체 폭 사용 */
+    background:var(--navy);             /* 배경: 어두운 네이비 */
+    border:1px solid var(--line);       /* 테두리: 얇은 선 */
+    color:var(--text);                  /* 텍스트 색상: 밝은 색 */
+    border-radius:10px;                 /* 모서리 둥글기 */
+    padding:11px 13px;                  /* 내부 여백 */
+    font-size:14px;                     /* 텍스트 크기 (작게:12px / 크게:16px) */
+    outline:none;
   }
-  .field:focus{border-color:var(--accent);}
-  .card{background:var(--navy-2);border:1px solid var(--line);border-radius:14px;}
-  .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--navy-3);color:var(--muted);}
-  label.lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px;}
-  /* main 영역 텍스트 연한 주황색 */
-  main, main * { color: #FFFFFF !important; }
-  main .tag { color: var(--accent) !important; }
+  .field:focus{border-color:var(--accent);}  /* 클릭하면 테두리가 주황색으로 */
+  
+  /* === 카드 스타일 (.card) ===
+     프로젝트, 통계, 정보박스 등 모든 카드 */
+  .card{
+    background:var(--navy-2);           /* 배경: 중간 톤 네이비 */
+    border:1px solid var(--line);       /* 테두리: 구분선 색상 */
+    border-radius:14px;                 /* 모서리 둥글기 (더 키우면 둥글어짐) */
+    /* padding은 각 카드마다 다르게 설정함 */
+  }
+  
+  /* === 태그 스타일 (.tag) ===
+     팀원, 상태 등을 표시하는 작은 배지 */
+  .tag{
+    font-size:11px;                     /* 작은 텍스트 */
+    padding:2px 8px;                    /* 아주 작은 여백 */
+    border-radius:999px;                /* 매우 둥글게 (캡슐 모양) */
+    background:var(--navy-3);           /* 배경: 밝은 네이비 */
+    color:var(--muted);                 /* 텍스트: 연한 색 */
+  }
+  
+  /* === 라벨 스타일 (label.lbl) ===
+     입력창 위의 "프로젝트명", "팀원 배정" 등 */
+  label.lbl{
+    display:block;                      /* 한 줄 차지 */
+    font-size:12px;                     /* 작은 텍스트 */
+    color:var(--muted);                 /* 연한 색 */
+    margin:0 0 6px 2px;                 /* 아래 여백 6px */
+  }
+  
+  /* === main 영역 특별 처리 ===
+     대시보드, 프로젝트, 주간업무 메인 영역 */
+  main, main * { color: #FFFFFF !important; }  /* 모든 텍스트: 흰색 */
+  main .tag { color: var(--accent) !important; }  /* 태그는 주황색 */
   @keyframes spin{to{transform:rotate(360deg);}}
   .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
 </style>
