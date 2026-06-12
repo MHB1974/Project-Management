@@ -1,0 +1,4 @@
+.member-card {
+  display: flex;
+  flex-direction: column;
+}

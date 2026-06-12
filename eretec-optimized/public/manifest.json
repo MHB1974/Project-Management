@@ -1,0 +1,16 @@
+{
+  "name": "Project Management (이레테크)",
+  "short_name": "PM",
+  "description": "설계팀 프로젝트 관리 시스템",
+  "start_url": "/Project-Management/",
+  "display": "standalone",
+  "background_color": "#13192E",
+  "theme_color": "#FF7A2E",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#13192E" />
+    <meta name="description" content="설계팀 프로젝트 관리 시스템" />
+    
+    <title>Project Management (이레테크)</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/assets/vendor-*.js" as="script" />
+    <link rel="preload" href="/assets/index-*.js" as="script" />
+    
+    <!-- DNS Prefetch for Firebase -->
+    <link rel="dns-prefetch" href="https://www.gstatic.com" />
+    <link rel="dns-prefetch" href="https://www.googleapis.com" />
+    
+    <!-- React entry point -->
+    <script type="module" src="/src/main.jsx"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Loading spinner (minimal) -->
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #root { width: 100vw; height: 100vh; }
+    </style>
+  </body>
+</html>
