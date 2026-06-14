@@ -1,0 +1,259 @@
+.claude-chat {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(19, 25, 46, 0.8) 100%);
+  border-left: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.claude-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(13, 17, 30, 0.6);
+}
+
+.claude-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+
+.claude-settings {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  color: var(--text);
+}
+
+.claude-settings:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.claude-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  flex: 1;
+}
+
+.claude-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.claude-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.claude-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.claude-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.claude-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.claude-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 20px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.claude-message {
+  display: flex;
+  justify-content: flex-start;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.claude-message.user {
+  justify-content: flex-end;
+}
+
+.message-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.claude-message.user .message-bubble {
+  background: var(--accent);
+  color: white;
+  border-radius: 12px 2px 12px 12px;
+}
+
+.claude-message.assistant .message-bubble {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-radius: 2px 12px 12px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message-bubble.error {
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.message-bubble.typing {
+  padding: 10px 12px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.message-bubble.typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: typing 1.4s infinite;
+}
+
+.message-bubble.typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.message-bubble.typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-8px);
+  }
+}
+
+.claude-input-area {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: rgba(13, 17, 30, 0.6);
+  flex-shrink: 0;
+}
+
+.claude-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.claude-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+.claude-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.claude-input::placeholder {
+  color: var(--muted);
+}
+
+.claude-send {
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 16px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.claude-send:hover:not(:disabled) {
+  background: var(--accent-2);
+  transform: scale(1.05);
+}
+
+.claude-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.api-key-input {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(13, 17, 30, 0.6);
+}
+
+@media (max-width: 768px) {
+  .claude-chat {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  .message-bubble {
+    max-width: 90%;
+  }
+}
